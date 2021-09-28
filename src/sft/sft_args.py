@@ -5,10 +5,10 @@ from typing import Optional
 class SftArguments:
     "Arguments pertaining to sparse fine-tuning configuration."""
     
-    language_ft_path: Optional[str] = field(
+    lang_ft: Optional[str] = field(
         default=None, metadata={"help": "Path to saved language SparseFineTuning."}
     )
-    task_ft_path: Optional[str] = field(
+    task_ft: Optional[str] = field(
         default=None, metadata={"help": "Path to saved task SparseFineTuning."}
     )
     

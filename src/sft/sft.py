@@ -1,4 +1,10 @@
+import os
+
 import torch
+
+from .hf_utils import pull_from_hf_model_hub
+
+SFT_FILE_NAME = 'pytorch_diff.bin'
 
 
 class SparseTensorDifference:
@@ -35,9 +41,23 @@ class SparseTensorDifference:
 
 class SFT:
 
-    def __init__(self, from_file=None):
-        if from_file is not None:
-            diffs = torch.load(from_file)
+    def __init__(self,
+        name_or_path=None,
+        version=None,
+        cache_dir=None,
+    ):
+        if name_or_path is not None:
+            if os.path.isdir(name_or_path):
+                sft_dir = name_or_path
+            else:
+                sft_dir = pull_from_hf_model_hub(
+                    name_or_path,
+                    version=version,
+                    cache_dir=cache_dir
+                )
+
+            sft_file = os.path.join(sft_dir, SFT_FILE_NAME)
+            diffs = torch.load(sft_file)
             self.diffs = {
                 p: SparseTensorDifference(from_dict=d)
                 for p, d in diffs.items()
@@ -48,8 +68,9 @@ class SFT:
     def add_tensor(self, param_name, diff):
         self.diffs[param_name] = SparseTensorDifference(dense_tensor=diff)
 
-    def save(self, path):
-        torch.save(self.diffs, path)
+    def save(self, save_dir):
+        save_path = os.path.join(save_dir, SFT_FILE_NAME)
+        torch.save(self.diffs, save_path)
 
     def apply(self, model):
         with torch.no_grad():

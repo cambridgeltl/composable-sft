@@ -382,17 +382,15 @@ def main():
                     logger.info(n)
                     p.copy_(head[n])
 
-    task_ft = None
-    language_ft = None
-    if sft_args.task_ft_path is not None:
-        task_ft = SFT(from_file=sft_args.task_ft_path)
-        logger.info(f'Applying task fine-tuning {sft_args.task_ft_path}')
+    if sft_args.task_ft is not None:
+        task_ft = SFT(sft_args.task_ft)
+        logger.info(f'Applying task fine-tuning {sft_args.task_ft}')
         task_ft.apply(model)
 
-    if sft_args.language_ft_path is not None:
-        language_ft = SFT(from_file=sft_args.language_ft_path)
-        logger.info(f'Applying language fine-tuning {sft_args.language_ft_path}')
-        language_ft.apply(model)
+    if sft_args.lang_ft is not None:
+        lang_ft = SFT(sft_args.lang_ft)
+        logger.info(f'Applying language fine-tuning {sft_args.lang_ft}')
+        lang_ft.apply(model)
 
     # Tokenizer check: this script requires a fast tokenizer.
     if not isinstance(tokenizer, PreTrainedTokenizerFast):

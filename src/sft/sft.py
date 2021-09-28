@@ -1,8 +1,11 @@
+import logging
 import os
 
 import torch
 
 from .hf_utils import pull_from_hf_model_hub
+
+logger = logging.getLogger(__name__)
 
 SFT_FILE_NAME = 'pytorch_diff.bin'
 
@@ -57,26 +60,52 @@ class SFT:
                 )
 
             sft_file = os.path.join(sft_dir, SFT_FILE_NAME)
-            diffs = torch.load(sft_file)
-            self.diffs = {
-                p: SparseTensorDifference(from_dict=d)
-                for p, d in diffs.items()
-            }
+            components = torch.load(sft_file)
+            
+            if 'body' in components:
+                self.diffs = {
+                    p: SparseTensorDifference(from_dict=d)
+                    for p, d in components['body'].items()
+                }
+            else:
+                raise ValueError(f'SFT {name_or_path} is missing a body')
+
+            if 'head' in components:
+                self.head = components['head']
+            else:
+                self.head = None
         else:
             self.diffs = {}
+            self.head = None
 
     def add_tensor(self, param_name, diff):
         self.diffs[param_name] = SparseTensorDifference(dense_tensor=diff)
 
     def save(self, save_dir):
-        save_path = os.path.join(save_dir, SFT_FILE_NAME)
-        torch.save(self.diffs, save_path)
+        components = {
+            'body': self.diffs,
+        }
+        if self.head is not None:
+            components['head'] = self.head
 
-    def apply(self, model):
+        save_path = os.path.join(save_dir, SFT_FILE_NAME)
+        torch.save(components, save_path)
+
+    def apply(self, model, with_head=None):
         with torch.no_grad():
             for param_name, diff in self.diffs.items():
+                logger.info(param_name)
                 param_tensor = model.get_parameter(param_name)
                 param_tensor += diff.to_tensor().to(param_tensor.device)
+
+            if with_head or (with_head is None and self.head is not None):
+                if self.head is None:
+                    raise ValueError('Received with_head=True but no head present.')
+
+                for param_name, value in self.head.items():
+                    logger.info(param_name)
+                    param_tensor = model.get_parameter(param_name)
+                    param_tensor.copy_(value)
 
     def revert(self, model):
         with torch.no_grad():

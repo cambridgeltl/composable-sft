@@ -373,15 +373,6 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
     )
 
-    #if model_args.head_path is not None:
-    #    logger.info('Loading head')
-    #    with torch.no_grad():
-    #        head = torch.load(model_args.head_path)
-    #        for n, p in model.named_parameters():
-    #            if n.startswith('classifier.'):
-    #                logger.info(n)
-    #                p.copy_(head[n])
-
     if sft_args.task_ft is not None:
         task_ft = SFT(sft_args.task_ft)
         logger.info(f'Applying task fine-tuning {sft_args.task_ft}')

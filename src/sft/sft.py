@@ -11,38 +11,6 @@ logger = logging.getLogger(__name__)
 SFT_FILE_NAME = 'pytorch_diff.bin'
 
 
-#class SparseTensorDifference:
-#
-#    def __init__(self, from_dict=None, dense_tensor=None, size=None):
-#        if from_dict is not None:
-#            self.size = from_dict['size']
-#            self.indices = from_dict['indices']
-#            self.values = from_dict['values']
-#        elif dense_tensor is None:
-#            self.size = size
-#            self.indices = [[] for i in size]
-#            self.values = []
-#        else:
-#            sparse_tensor = dense_tensor.to_sparse().coalesce()
-#            self.size = sparse_tensor.size()
-#            self.indices = sparse_tensor.indices().tolist()
-#            self.values = sparse_tensor.values().tolist()
-#
-#    def add(self, index, value):
-#        for d, i in enumerate(index):
-#            self.indices[d].append(i)
-#        self.values.append(value)
-#
-#    def to_tensor(self):
-#        return torch.sparse_coo_tensor(self.indices, self.values, self.size)
-#
-#    def get_indices(self):
-#        return [
-#            tuple(self.indices[j][i] for j in range(len(self.size)))
-#            for i in range(len(self.values))
-#        ]
-
-
 def decode_sparse_tensor(encoding):
     size = encoding['size']
     index_steps = encoding['index_steps']
@@ -54,7 +22,6 @@ def decode_sparse_tensor(encoding):
     
     coordinates = np.expand_dims(indices, 0) // np.expand_dims(divisors, 1)
     coordinates = coordinates % np.expand_dims(modulos, 1)
-    print(coordinates)
 
     return torch.sparse_coo_tensor(coordinates, values, size=size).coalesce()
 

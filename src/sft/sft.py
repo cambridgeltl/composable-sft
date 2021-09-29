@@ -26,6 +26,27 @@ def decode_sparse_tensor(encoding):
     return torch.sparse_coo_tensor(coordinates, values, size=size).coalesce()
 
 
+def encode_sparse_tensor(tensor):
+    multipliers = np.cumprod([1] + list(tensor.size())[:-1], dtype=np.int64)
+    coordinates = np.array(tensor.indices(), dtype=np.int64)
+    indices = np.matmul(multipliers, coordinates)
+    perm = list(range(len(indices)))
+    perm.sort(key=lambda x: indices[x])
+    indices = indices[perm]
+    index_steps = indices[1:] - indices[:-1]
+    index_steps = index_steps.tolist()
+    if len(indices) > 0:
+        index_steps = [indices[0]] + index_steps
+    assert isinstance(tensor.values(), torch.Tensor)
+    #values = torch.tensor(tensor.values(), dtype=tensor.dtype)[perm]
+    values = tensor.values()[perm]
+    return {
+        'size': tensor.size(),
+        'index_steps': index_steps,
+        'values': values,
+    }
+
+
 class SFT:
 
     def __init__(self,
@@ -73,7 +94,7 @@ class SFT:
 
     def save(self, save_dir):
         components = {
-            'diffs': self.diffs,
+            'diffs': encode_sparse_tensor(self.diffs),
             'abs': self.abs,
         }
         save_path = os.path.join(save_dir, SFT_FILE_NAME)

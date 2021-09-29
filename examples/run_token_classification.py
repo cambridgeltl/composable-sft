@@ -40,7 +40,6 @@ from transformers import (
     EarlyStoppingCallback,
     HfArgumentParser,
     PreTrainedTokenizerFast,
-    Trainer,
     TrainingArguments,
     set_seed,
 )
@@ -49,6 +48,7 @@ from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 from sft import (
+    LotteryTicketSparseFineTuner,
     SFT,
     SftArguments,
 )
@@ -509,8 +509,25 @@ def main():
                 "accuracy": results["overall_accuracy"],
             }
 
+    if sft_args.freeze_layer_norm:
+        for n, p in model.named_parameters():
+            if 'LayerNorm' in n:
+                p.requires_grad = False
+
+    maskable_params = [
+        n for n, p in model.named_parameters()
+        if n.startswith(model.base_model_prefix) and p.requires_grad
+    ]
+    for n, p in model.named_parameters():
+        logger.info(f'{n}: {p.requires_grad}')
+    logger.info('Maskable params:')
+    for n in maskable_params:
+        logger.info(n)
+
     # Initialize our Trainer
-    trainer = Trainer(
+    trainer = LotteryTicketSparseFineTuner(
+        sft_args=sft_args,
+        maskable_params=maskable_params,
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
@@ -519,6 +536,28 @@ def main():
         data_collator=data_collator,
         compute_metrics=compute_metrics,
     )
+
+    # Training
+    if training_args.do_train:
+        checkpoint = None
+        if training_args.resume_from_checkpoint is not None:
+            checkpoint = training_args.resume_from_checkpoint
+        elif last_checkpoint is not None:
+            checkpoint = last_checkpoint
+        train_result = trainer.train(resume_from_checkpoint=checkpoint)
+        metrics = train_result.metrics
+        trainer.save_model()  # Saves the tokenizer too for easy upload
+
+        max_train_samples = (
+            data_args.max_train_samples if data_args.max_train_samples is not None else len(train_dataset)
+        )
+        metrics["train_samples"] = min(max_train_samples, len(train_dataset))
+
+        trainer.log_metrics("train", metrics)
+        trainer.save_metrics("train", metrics)
+        trainer.save_state()
+
+        trainer.sft().save(training_args.output_dir)
 
     # Evaluation
     if training_args.do_eval:

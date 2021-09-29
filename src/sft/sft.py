@@ -28,7 +28,7 @@ def decode_sparse_tensor(encoding):
 
 def encode_sparse_tensor(tensor):
     multipliers = np.cumprod([1] + list(tensor.size())[:-1], dtype=np.int64)
-    coordinates = np.array(tensor.indices(), dtype=np.int64)
+    coordinates = np.array(tensor.indices().to('cpu'), dtype=np.int64)
     indices = np.matmul(multipliers, coordinates)
     perm = list(range(len(indices)))
     perm.sort(key=lambda x: indices[x])
@@ -37,9 +37,7 @@ def encode_sparse_tensor(tensor):
     index_steps = index_steps.tolist()
     if len(indices) > 0:
         index_steps = [indices[0]] + index_steps
-    assert isinstance(tensor.values(), torch.Tensor)
-    #values = torch.tensor(tensor.values(), dtype=tensor.dtype)[perm]
-    values = tensor.values()[perm]
+    values = tensor.values().to('cpu')[perm]
     return {
         'size': tensor.size(),
         'index_steps': index_steps,
@@ -93,12 +91,16 @@ class SFT:
             self.abs[name] = tensor
 
     def save(self, save_dir):
-        components = {
-            'diffs': encode_sparse_tensor(self.diffs),
+        encoded_diffs = {
+            n: encode_sparse_tensor(p)
+            for n, p in self.diffs.items()
+        }
+        tensors = {
+            'diffs': encoded_diffs,
             'abs': self.abs,
         }
         save_path = os.path.join(save_dir, SFT_FILE_NAME)
-        torch.save(components, save_path)
+        torch.save(tensors, save_path)
 
     def apply(self, model, with_abs=True):
         with torch.no_grad():

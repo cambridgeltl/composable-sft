@@ -44,56 +44,55 @@ class SFT:
                 )
 
             sft_file = os.path.join(sft_dir, SFT_FILE_NAME)
-            components = torch.load(sft_file)
+            tensors = torch.load(sft_file)
             
-            if 'body' in components:
+            if 'diffs' in tensors:
                 self.diffs = {
                     p: decode_sparse_tensor(d)
-                    for p, d in components['body'].items()
+                    for p, d in tensors['diffs'].items()
                 }
             else:
-                raise ValueError(f'SFT {name_or_path} is missing a body')
+                self.diffs = {}
 
-            if 'head' in components:
-                self.head = components['head']
+            if 'abs' in tensors:
+                self.abs = tensors['abs']
             else:
-                self.head = None
+                self.abs = {}
+
+            if not self.diffs and not self.abs:
+                logger.warn(f'Empty SFT {name_or_path}')
         else:
             self.diffs = {}
-            self.head = None
+            self.abs = {}
 
-    def add_tensor(self, param_name, dense_tensor):
-        self.diffs[param_name] = dense_tensor.to_sparse().coalesce()
+    def add_param(self, name, tensor, diff=True):
+        if diff:
+            self.diffs[name] = tensor.to_sparse().coalesce()
+        else:
+            self.abs[name] = tensor
 
     def save(self, save_dir):
         components = {
-            'body': self.diffs,
+            'diffs': self.diffs,
+            'abs': self.abs,
         }
-        if self.head is not None:
-            components['head'] = self.head
-
         save_path = os.path.join(save_dir, SFT_FILE_NAME)
         torch.save(components, save_path)
 
-    def apply(self, model, with_head=None):
+    def apply(self, model, with_abs=True):
         with torch.no_grad():
-            for param_name, diff in self.diffs.items():
-                logger.info(param_name)
-                param_tensor = model.get_parameter(param_name)
-                param_tensor += diff.to(param_tensor.device)
+            for name, diff in self.diffs.items():
+                tensor = model.get_parameter(name)
+                tensor += diff.to(tensor.device)
 
-            if with_head or (with_head is None and self.head is not None):
-                if self.head is None:
-                    raise ValueError('Received with_head=True but no head present.')
-
-                for param_name, value in self.head.items():
-                    logger.info(param_name)
-                    param_tensor = model.get_parameter(param_name)
-                    param_tensor.copy_(value)
+            if with_abs:
+                for name, value in self.abs.items():
+                    tensor = model.get_parameter(name)
+                    tensor.copy_(value)
 
     def revert(self, model):
         with torch.no_grad():
-            for param_name, diff in self.diffs.items():
-                param_tensor = model.get_parameter(param_name)
-                param_tensor -= diff.to(param_tensor.device)
+            for name, diff in self.diffs.items():
+                tensor = model.get_parameter(name)
+                tensor -= diff.to(tensor.device)
 

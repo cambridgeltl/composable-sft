@@ -1,6 +1,7 @@
 import logging
 import os
 
+import numpy as np
 import torch
 
 from .hf_utils import pull_from_hf_model_hub
@@ -10,36 +11,52 @@ logger = logging.getLogger(__name__)
 SFT_FILE_NAME = 'pytorch_diff.bin'
 
 
-class SparseTensorDifference:
+#class SparseTensorDifference:
+#
+#    def __init__(self, from_dict=None, dense_tensor=None, size=None):
+#        if from_dict is not None:
+#            self.size = from_dict['size']
+#            self.indices = from_dict['indices']
+#            self.values = from_dict['values']
+#        elif dense_tensor is None:
+#            self.size = size
+#            self.indices = [[] for i in size]
+#            self.values = []
+#        else:
+#            sparse_tensor = dense_tensor.to_sparse().coalesce()
+#            self.size = sparse_tensor.size()
+#            self.indices = sparse_tensor.indices().tolist()
+#            self.values = sparse_tensor.values().tolist()
+#
+#    def add(self, index, value):
+#        for d, i in enumerate(index):
+#            self.indices[d].append(i)
+#        self.values.append(value)
+#
+#    def to_tensor(self):
+#        return torch.sparse_coo_tensor(self.indices, self.values, self.size)
+#
+#    def get_indices(self):
+#        return [
+#            tuple(self.indices[j][i] for j in range(len(self.size)))
+#            for i in range(len(self.values))
+#        ]
 
-    def __init__(self, from_dict=None, dense_tensor=None, size=None):
-        if from_dict is not None:
-            self.size = from_dict['size']
-            self.indices = from_dict['indices']
-            self.values = from_dict['values']
-        elif dense_tensor is None:
-            self.size = size
-            self.indices = [[] for i in size]
-            self.values = []
-        else:
-            sparse_tensor = dense_tensor.to_sparse().coalesce()
-            self.size = sparse_tensor.size()
-            self.indices = sparse_tensor.indices().tolist()
-            self.values = sparse_tensor.values().tolist()
 
-    def add(self, index, value):
-        for d, i in enumerate(index):
-            self.indices[d].append(i)
-        self.values.append(value)
+def decode_sparse_tensor(encoding):
+    size = encoding['size']
+    index_steps = encoding['index_steps']
+    values = encoding['values']
 
-    def to_tensor(self):
-        return torch.sparse_coo_tensor(self.indices, self.values, self.size)
+    indices = np.cumsum(index_steps, dtype=np.int32)
+    modulos = np.cumprod(list(size), dtype=np.int32)
+    divisors = np.concatenate([[1], modulos[:-1]], dtype=np.int32)
+    
+    coordinates = np.expand_dims(indices, 0) // np.expand_dims(divisors, 1)
+    coordinates = coordinates % np.expand_dims(modulos, 1)
+    print(coordinates)
 
-    def get_indices(self):
-        return [
-            tuple(self.indices[j][i] for j in range(len(self.size)))
-            for i in range(len(self.values))
-        ]
+    return torch.sparse_coo_tensor(coordinates, values, size=size).coalesce()
 
 
 class SFT:
@@ -64,7 +81,7 @@ class SFT:
             
             if 'body' in components:
                 self.diffs = {
-                    p: SparseTensorDifference(from_dict=d)
+                    p: decode_sparse_tensor(d)
                     for p, d in components['body'].items()
                 }
             else:
@@ -78,8 +95,8 @@ class SFT:
             self.diffs = {}
             self.head = None
 
-    def add_tensor(self, param_name, diff):
-        self.diffs[param_name] = SparseTensorDifference(dense_tensor=diff)
+    def add_tensor(self, param_name, dense_tensor):
+        self.diffs[param_name] = dense_tensor.to_sparse().coalesce()
 
     def save(self, save_dir):
         components = {
@@ -96,7 +113,7 @@ class SFT:
             for param_name, diff in self.diffs.items():
                 logger.info(param_name)
                 param_tensor = model.get_parameter(param_name)
-                param_tensor += diff.to_tensor().to(param_tensor.device)
+                param_tensor += diff.to(param_tensor.device)
 
             if with_head or (with_head is None and self.head is not None):
                 if self.head is None:
@@ -111,5 +128,5 @@ class SFT:
         with torch.no_grad():
             for param_name, diff in self.diffs.items():
                 param_tensor = model.get_parameter(param_name)
-                param_tensor -= diff.to_tensor().to(param_tensor.device)
+                param_tensor -= diff.to(param_tensor.device)
 

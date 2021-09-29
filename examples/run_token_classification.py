@@ -385,12 +385,12 @@ def main():
     if sft_args.task_ft is not None:
         task_ft = SFT(sft_args.task_ft)
         logger.info(f'Applying task fine-tuning {sft_args.task_ft}')
-        task_ft.apply(model)
+        task_ft.apply(model, with_head=True)
 
     if sft_args.lang_ft is not None:
         lang_ft = SFT(sft_args.lang_ft)
         logger.info(f'Applying language fine-tuning {sft_args.lang_ft}')
-        lang_ft.apply(model)
+        lang_ft.apply(model, with_head=False)
 
     # Tokenizer check: this script requires a fast tokenizer.
     if not isinstance(tokenizer, PreTrainedTokenizerFast):

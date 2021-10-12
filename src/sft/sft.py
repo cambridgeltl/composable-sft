@@ -88,7 +88,7 @@ class SFT:
         if diff:
             self.diffs[name] = tensor.to_sparse().coalesce()
         else:
-            self.abs[name] = tensor
+            self.abs[name] = tensor.to('cpu')
 
     def save(self, save_dir):
         encoded_diffs = {

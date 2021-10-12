@@ -22,6 +22,10 @@ setup(
     packages=find_packages(where='src'),
 
     install_requires=[
+        'conllu',
+        'datasets>=1.8',
+        'huggingface-hub>=0.0.17',
+        'seqeval',
         'transformers>=4.9',
     ],
     python_requires='>=3.6',

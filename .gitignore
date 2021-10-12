@@ -1,0 +1,9 @@
+examples/dependency-parsing/models/*
+examples/dependency-parsing/results/*
+examples/text-classification/data/*
+examples/text-classification/results/*
+examples/token-classification/models/*/*
+examples/token-classification/ner_dataset.py.lock
+examples/token-classification/results/*/*
+src/composable_sft.egg-info/
+**/__pycache__/

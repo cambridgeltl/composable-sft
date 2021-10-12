@@ -53,9 +53,6 @@ from sft import (
     SftArguments,
 )
 
-#from fine_tuning import get_fine_tuner, SparseFineTuning
-#from sft_arguments import SftArguments
-
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.9.0.dev0")
 
@@ -518,11 +515,6 @@ def main():
         n for n, p in model.named_parameters()
         if n.startswith(model.base_model_prefix) and p.requires_grad
     ]
-    for n, p in model.named_parameters():
-        logger.info(f'{n}: {p.requires_grad}')
-    logger.info('Maskable params:')
-    for n in maskable_params:
-        logger.info(n)
 
     # Initialize our Trainer
     trainer = LotteryTicketSparseFineTuner(

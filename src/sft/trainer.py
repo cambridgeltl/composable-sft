@@ -177,7 +177,7 @@ class SparseFineTuner(Trainer):
                     l1_dists.append(
                         torch.sum(torch.abs(p - self._original_params[n]))
                     )
-            reg_loss = l1_reg * torch.sum(torch.stack(diffs)) / self._num_params
+            reg_loss = l1_reg * torch.sum(torch.stack(l1_dists)) / self._num_params
             reg_loss.backward()
             self._reg_loss += float(reg_loss)
             self.calculate_reg_loss = False

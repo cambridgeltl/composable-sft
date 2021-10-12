@@ -1,6 +1,6 @@
 #!/bin/bash
 LANG=bxr # Buryat
-TREEBANK=bxr_bdt
+TREEBANK=${LANG}_bdt
 LANG_FT=cambridgeltl/mbert-lang-sft-${LANG}-small
 TASK_FT=cambridgeltl/mbert-task-sft-dp
 

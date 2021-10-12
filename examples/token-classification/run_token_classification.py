@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# coding=utf-8
 # Copyright 2020 The HuggingFace Team All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,12 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-Fine-tuning the library models for token classification.
-"""
-# You can also adapt this script on your own token classification task and datasets. Pointers for this are left as
-# comments.
 
+# Modified by the Cambridge Language Technology Lab
 import logging
 import os
 import sys
@@ -147,12 +141,6 @@ class DataTrainingArguments:
             "help": "Whether to pad all samples to model maximum sentence length. "
             "If False, will pad the samples dynamically when batching to the maximum length in the batch. More "
             "efficient on GPU but very bad for TPU."
-        },
-    )
-    early_stopping: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether to employ early stopping."
         },
     )
     max_train_samples: Optional[int] = field(

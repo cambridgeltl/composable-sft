@@ -19,7 +19,18 @@ pip install -e .
 
 Pre-trained SFTs can be downloaded directly and applied to models as follows:
 ```
+from transformers import AutoConfig, AutoModelForTokenClassification
 from sft import SFT
+
+config = AutoConfig.from_pretrained(
+    'bert-base-multilingual-cased',
+    num_labels=17,
+)
+
+model = AutoModelForTokenClassification.from_pretrained(
+    'bert-base-multilingual-cased',
+    config=config,
+)
 
 language_sft = SFT('cambridgeltl/mbert-lang-sft-bxr-small') # SFT for Buryat
 task_sft = SFT('cambridgeltl/mbert-task-sft-pos') # SFT for POS tagging

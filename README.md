@@ -1,3 +1,5 @@
+This is a library for training and applying sparse fine-tunings with PyTorch and `transformers`.
+
 # Installation
 
 First, install Python 3.9 and PyTorch >= 1.9, e.g. using conda:

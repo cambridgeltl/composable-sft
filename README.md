@@ -42,6 +42,7 @@ language_sft.apply(model)
 task_sft.apply(model)
 ```
 
+For a full list of pre-trained SFTs available, see [MODELS](MODELS.md)
 
 ## Example Scripts
 Example scripts are provided in `examples/` to show how to train SFTs using LT-SFT and evaluate them.

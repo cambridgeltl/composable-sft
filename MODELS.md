@@ -43,6 +43,7 @@ Identifiers for language SFTs are of the form `cambridgeltl/{base_model}-lang-sf
 | Ashaninka | cni |
 | Aymara | aym |
 | Bribri | bzd |
+| English | en |
 | Guarani | gn |
 | Nahuatl | nah |
 | Otomi | oto |

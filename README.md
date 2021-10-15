@@ -1,8 +1,8 @@
-This is a library for training and applying sparse fine-tunings with PyTorch and `transformers`.
+This is a library for training and applying sparse fine-tunings with `torch` and `transformers`. Please refer to our paper [Composable Sparse Fine-Tuning for Cross Lingual Transfer](https://arxiv.org/abs/2110.07560) for background.
 
-# Installation
+## Installation
 
-First, install Python 3.9 and PyTorch >= 1.9, e.g. using conda:
+First, install Python 3.9 and PyTorch >= 1.9 (earlier versions may work but haven't been tested), e.g. using conda:
 ```
 conda create -n sft python=3.9
 conda activate sft
@@ -17,7 +17,7 @@ pip install -e .
 ```
 
 
-# Using pre-trained SFTs
+## Using pre-trained SFTs
 
 Pre-trained SFTs can be downloaded directly and applied to models as follows:
 ```
@@ -43,5 +43,19 @@ task_sft.apply(model)
 ```
 
 
-# Example Scripts
+## Example Scripts
 Example scripts are provided in `examples/` to show how to train SFTs using LT-SFT and evaluate them.
+
+
+## Citation
+If you use this software, please cite the following paper:
+```
+@misc{ansell2021composable,
+      title={Composable Sparse Fine-Tuning for Cross-Lingual Transfer},
+      author={Alan Ansell and Edoardo Maria Ponti and Anna Korhonen and Ivan Vuli\'{c}},
+      year={2021},
+      eprint={2110.07560},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+```

@@ -44,8 +44,29 @@ task_sft.apply(model)
 
 For a full list of pre-trained SFTs available, see [MODELS](MODELS.md)
 
+
+## Training SFTs
+
+`LotteryTicketSparseFineTuner` is a sub-class of the `transformers Trainer` class which performs Lottery Ticket Sparse Fine-Tuning. Its constructor takes the following arguments in addition to those of `Trainer`:
+* `sft_args`: an `SftArguments` object which holds hyperparameters relating to SFT training (c.f. `transformers TrainingArguments`).
+* `maskable_params`: a list of model parameter tensors which are eligible for sparse fine-tuning. Parameters of the classification head should be excluded from this list because these should typically be fully fine-tuned. E.g.
+```
+maskable_params = [
+    n for n, p in model.named_parameters()
+    if n.startswith(model.base_model_prefix) and p.requires_grad
+]
+```
+
+The following command-line params processed by `SftArguments` may be useful:
+* `ft_params_num`/`ft_params_proportion` - controls the number/proportion of the maskable params that will be fine-tuned.
+* `full_ft_max_steps_per_iteration`/`full_ft_max_epochs_per_iteration` - controls the maximum number of steps/epochs in the first phase of LT-SFT. Both can be set.
+* `sparse_ft_max_steps_per_iteration`/`sparse_ft_max_epochs_per_iteration` - controls the maximum number of steps/epochs in the second phase of LT-SFT. Both can be set.
+* `full_ft_min_steps_per_iteration`/`sparse_ft_min_steps_per_iteration` - controls the minimum number of steps in the first/second phase of LT-SFT. Takes effect if a max number of epochs is set which amounts to a lesser number of steps.
+
+
+
 ## Example Scripts
-Example scripts are provided in `examples/` to show how to train SFTs using LT-SFT and evaluate them.
+Examples of SFT training and evaluation are provided in `examples/`.
 
 
 ## Citation

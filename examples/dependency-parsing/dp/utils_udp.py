@@ -22,6 +22,7 @@ from transformers.file_utils import PaddingStrategy
 from transformers.trainer_utils import EvalLoopOutput
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 UD_HEAD_LABELS = [
     "_",
@@ -108,11 +109,11 @@ def dataset_preprocessor(tokenizer, label2id, padding):
             # determine start indices of words
             tokenized_inputs['word_starts'] = np.cumsum([1] + word_lengths).tolist()
 
-            #if idx < 5:
-            #    logger.info("*** Example ***")
-            #    logger.info(f"tokens: {tokens}")
-            #    for k, v in sorted(list(tokenized_inputs.items())):
-            #        logger.info(f'{k}: {v}')
+            if idx < 5:
+                logger.info("*** Example ***")
+                logger.info(f"tokens: {tokens}")
+                for k, v in sorted(list(tokenized_inputs.items())):
+                    logger.info(f'{k}: {v}')
 
             for k, v in tokenized_inputs.items():
                 features.setdefault(k, []).append(v)
@@ -291,7 +292,7 @@ def DependencyParsingTrainer(_Trainer):
             batch_size = dataloader.batch_size
             logger.info("***** Running %s *****", description)
             logger.info("  Num examples = %d", self.num_examples(dataloader))
-            logger.info("  Batch size = %d", batch_size)
+            logger.info("  Batch size = %s", str(batch_size)) # may be None
             logger.info("  Decode mode = %s", self.args.decode_mode)
             eval_losses: List[float] = []
             model.eval()
@@ -300,14 +301,14 @@ def DependencyParsingTrainer(_Trainer):
 
             for inputs in tqdm(dataloader, desc=description):
 
-                for k, v in inputs.items():
-                    if isinstance(v, torch.Tensor):
-                        inputs[k] = v.to(self.args.device)
+                #for k, v in inputs.items():
+                #    if isinstance(v, torch.Tensor):
+                #        inputs[k] = v.to(self.args.device)
 
-                with torch.no_grad():
-                    step_eval_loss, rel_preds, arc_preds = model(**inputs)
+                #with torch.no_grad():
+                step_eval_loss, (rel_preds, arc_preds), _ = self.prediction_step(model, inputs, False)
 
-                    eval_losses += [step_eval_loss.mean().item()]
+                eval_losses += [step_eval_loss.mean().item()]
 
                 mask = inputs["labels_arcs"].ne(self.model.config.pad_token_id)
                 predictions_arcs = torch.argmax(arc_preds, dim=-1)[mask]

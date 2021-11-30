@@ -13,6 +13,7 @@
 # limitations under the License.
 
 # Modified by the Cambridge Language Technology Lab
+import json
 import logging
 import os
 import sys
@@ -42,7 +43,10 @@ from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 from sft import (
+    load_multisource_dataset,
+    load_single_dataset,
     LotteryTicketSparseFineTuner,
+    MultiSourcePlugin,
     SFT,
     SftArguments,
 )
@@ -98,6 +102,9 @@ class DataTrainingArguments:
     """
 
     task_name: Optional[str] = field(default="ner", metadata={"help": "The name of the task (ner, pos...)."})
+    multisource_data: Optional[str] = field(
+        default=None, metadata={"help": "File describing JSON descriptor of multi-source data."}
+    )
     dataset_name: Optional[str] = field(
         default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
@@ -143,6 +150,12 @@ class DataTrainingArguments:
             "efficient on GPU but very bad for TPU."
         },
     )
+    max_seq_length: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "Maximum sequence length; longer sequences will be discarded."
+        },
+    )
     max_train_samples: Optional[int] = field(
         default=None,
         metadata={
@@ -178,7 +191,7 @@ class DataTrainingArguments:
 
 
     def __post_init__(self):
-        if self.dataset_name is None and self.train_file is None and self.validation_file is None:
+        if self.multisource_data is self.dataset_name is None and self.train_file is None and self.validation_file is None:
             raise ValueError("Need either a dataset name or a training/validation file.")
         else:
             if self.train_file is not None:
@@ -251,24 +264,36 @@ def main():
     #
     # In distributed training, the load_dataset function guarantee that only one local process can concurrently
     # download the dataset.
-    if data_args.dataset_name is not None:
-        # Downloading and loading a dataset from the hub.
-        #raw_datasets = load_dataset(
-        #    data_args.dataset_name, data_args.dataset_config_name, cache_dir=model_args.cache_dir
-        #)
-        raw_datasets = load_dataset(data_args.dataset_name, data_args.dataset_config_name, cache_dir=model_args.cache_dir)
+
+    if data_args.multisource_data is None:
+        dataset_descriptor = {
+            'name': data_args.dataset_name,
+            'config_name': data_args.dataset_config_name,
+        }
+
+        if not training_args.do_train:
+            dataset_descriptor['train_split'] = None
+        if not training_args.do_eval:
+            dataset_descriptor['validation_split'] = None
+
+        raw_datasets = load_single_dataset(
+            dataset_descriptor,
+            training_args,
+            cache_dir=model_args.cache_dir,
+            overwrite_cache=data_args.overwrite_cache,
+        )
+        lang_sfts = None
+
     else:
-        data_files = {}
-        if data_args.train_file is not None:
-            data_files["train"] = data_args.train_file
-        if data_args.validation_file is not None:
-            data_files["validation"] = data_args.validation_file
-        if data_args.test_file is not None:
-            data_files["test"] = data_args.test_file
-        extension = data_args.train_file.split(".")[-1]
-        raw_datasets = load_dataset(extension, data_files=data_files, cache_dir=model_args.cache_dir)
-    # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
-    # https://huggingface.co/docs/datasets/loading_datasets.html.
+        with open(data_args.multisource_data) as f:
+            multisource_json = json.load(f)
+
+        raw_datasets, lang_sfts = load_multisource_dataset(
+            multisource_json,
+            training_args,
+            cache_dir=model_args.cache_dir,
+            overwrite_cache=data_args.overwrite_cache,
+        )
 
     if training_args.do_train:
         column_names = raw_datasets["train"].column_names
@@ -306,9 +331,6 @@ def main():
         label_list = sorted(features[label_column_name].feature.names)
         if '_' in label_list:
             label_list.remove('_')
-        # No need to convert the labels since they are already ints.
-        #label_to_id = {i: i for i in range(len(label_list))}
-        #label_to_id = {l: i for i, l in enumerate(label_list)}
     else:
         label_list = get_label_list(raw_datasets["train"][label_column_name])
     label_to_id = {l: i for i, l in enumerate(label_list)}
@@ -322,8 +344,8 @@ def main():
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
         num_labels=num_labels,
-        label2id=label_to_id,
-        id2label={i: l for l, i in label_to_id.items()},
+        #label2id=label_to_id,
+        #id2label={i: l for l, i in label_to_id.items()},
         finetuning_task=data_args.task_name,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
@@ -364,6 +386,11 @@ def main():
         task_ft.apply(model, with_abs=True)
 
     if sft_args.lang_ft is not None:
+        if data_args.multisource_data:
+            raise ValueError(
+                '--lang_ft cannot be used with a multi-source dataset. '
+                'Use the "sft" field in the dataset JSON config instead.'
+            )
         lang_ft = SFT(sft_args.lang_ft)
         logger.info(f'Applying language fine-tuning {sft_args.lang_ft}')
         lang_ft.apply(model, with_abs=False)
@@ -441,6 +468,10 @@ def main():
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer on train dataset",
             )
+            if data_args.max_seq_length is not None:
+                train_dataset = train_dataset.filter(
+                    lambda example: len(example['input_ids']) <= data_args.max_seq_length
+                )
 
     if training_args.do_eval:
         if data_args.eval_split not in raw_datasets:
@@ -454,6 +485,10 @@ def main():
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer on evaluation dataset",
             )
+            if data_args.max_seq_length is not None:
+                eval_dataset = eval_dataset.filter(
+                    lambda example: len(example['input_ids']) <= data_args.max_seq_length
+                )
 
     # Data collator
     data_collator = DataCollatorForTokenClassification(tokenizer, pad_to_multiple_of=8 if training_args.fp16 else None)
@@ -505,7 +540,9 @@ def main():
     ]
 
     # Initialize our Trainer
-    trainer = LotteryTicketSparseFineTuner(
+    trainer_cls = LotteryTicketSparseFineTuner
+    trainer_cls = MultiSourcePlugin(trainer_cls)
+    trainer = trainer_cls(
         sft_args=sft_args,
         maskable_params=maskable_params,
         model=model,
@@ -515,6 +552,7 @@ def main():
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
+        source_sfts=lang_sfts,
     )
 
     # Training

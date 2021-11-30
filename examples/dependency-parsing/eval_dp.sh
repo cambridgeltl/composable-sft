@@ -1,13 +1,14 @@
 #!/bin/bash
 LANG=bxr # Buryat
-TREEBANK=${LANG}_bdt
+TREEBANK=bdt
 LANG_FT=cambridgeltl/mbert-lang-sft-${LANG}-small
-TASK_FT=cambridgeltl/mbert-task-sft-dp
+#TASK_FT=cambridgeltl/mbert-task-sft-dp # Single-source task SFT
+TASK_FT=cambridgeltl/mbert-task-sft-dp-ms
 
 python run_dp.py \
   --model_name_or_path bert-base-multilingual-cased \
   --dataset_name universal_dependencies \
-  --dataset_config_name $TREEBANK \
+  --dataset_config_name "${LANG}_${TREEBANK}" \
   --output_dir results/${LANG} \
   --lang_ft $LANG_FT \
   --task_ft $TASK_FT \

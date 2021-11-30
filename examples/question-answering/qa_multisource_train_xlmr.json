@@ -1,0 +1,117 @@
+{
+    "en": {
+        "sft": "cambridgeltl/xlmr-lang-sft-en-small",
+        "data": {
+            "name": "squad",
+            "validation_split": null
+        }
+    },
+    "ar": {
+        "sft": "cambridgeltl/xlmr-lang-sft-ar-small",
+        "data": [
+            {
+                "name": "mlqa",
+                "config_name": "mlqa.ar.ar",
+                "train_split": "test",
+                "validation_split": "validation",
+                "test_split": null
+            },
+            {
+                "name": "xquad",
+                "config_name": "xquad.ar",
+                "train_split": "validation",
+                "validation_split": null
+            }
+        ]
+    },
+    "de": {
+        "sft": "cambridgeltl/xlmr-lang-sft-de-small",
+        "data": [
+            {
+                "name": "mlqa",
+                "config_name": "mlqa.de.de",
+                "train_split": "test",
+                "validation_split": "validation",
+                "test_split": null
+            },
+            {
+                "name": "xquad",
+                "config_name": "xquad.de",
+                "train_split": "validation",
+                "validation_split": null
+            }
+        ]
+    },
+    "es": {
+        "sft": "cambridgeltl/xlmr-lang-sft-es-small",
+        "data": [
+            {
+                "name": "mlqa",
+                "config_name": "mlqa.es.es",
+                "train_split": "test",
+                "validation_split": "validation",
+                "test_split": null
+            },
+            {
+                "name": "xquad",
+                "config_name": "xquad.es",
+                "train_split": "validation",
+                "validation_split": null
+            }
+        ]
+    },
+    "zh": {
+        "sft": "cambridgeltl/xlmr-lang-sft-zh-small",
+        "data": [
+            {
+                "name": "mlqa",
+                "config_name": "mlqa.zh.zh",
+                "train_split": "test",
+                "validation_split": "validation",
+                "test_split": null
+            },
+            {
+                "name": "xquad",
+                "config_name": "xquad.zh",
+                "train_split": "validation",
+                "validation_split": null
+            }
+        ]
+    },
+    "vi": {
+        "sft": "cambridgeltl/xlmr-lang-sft-vi-small",
+        "data": [
+            {
+                "name": "mlqa",
+                "config_name": "mlqa.vi.vi",
+                "train_split": "test",
+                "validation_split": "validation",
+                "test_split": null
+            },
+            {
+                "name": "xquad",
+                "config_name": "xquad.vi",
+                "train_split": "validation",
+                "validation_split": null
+            }
+        ]
+    },
+    "hi": {
+        "sft": "cambridgeltl/xlmr-lang-sft-hi-small",
+        "data": [
+            {
+                "name": "mlqa",
+                "config_name": "mlqa.hi.hi",
+                "train_split": "test",
+                "validation_split": "validation",
+                "test_split": null
+            },
+            {
+                "name": "xquad",
+                "config_name": "xquad.hi",
+                "train_split": "validation",
+                "validation_split": null
+            }
+        ]
+    }
+}

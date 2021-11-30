@@ -104,9 +104,13 @@ class SFT:
 
     def apply(self, model, with_abs=True):
         with torch.no_grad():
-            for name, diff in self.diffs.items():
+            for name in self.diffs.keys():
+                diff = self.diffs[name]
                 tensor = model.get_parameter(name)
-                tensor += diff.to(tensor.device)
+                if diff.device != tensor.device:
+                    diff = diff.to(tensor.device)
+                    self.diffs[name] = diff
+                tensor += diff
 
             if with_abs:
                 for name, value in self.abs.items():
@@ -115,7 +119,11 @@ class SFT:
 
     def revert(self, model):
         with torch.no_grad():
-            for name, diff in self.diffs.items():
+            for name in self.diffs.keys():
+                diff = self.diffs[name]
                 tensor = model.get_parameter(name)
-                tensor -= diff.to(tensor.device)
+                if diff.device != tensor.device:
+                    diff = diff.to(tensor.device)
+                    self.diffs[name] = diff
+                tensor -= diff
 

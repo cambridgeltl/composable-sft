@@ -7,3 +7,4 @@ examples/token-classification/ner_dataset.py.lock
 examples/token-classification/results/*/*
 src/composable_sft.egg-info/
 **/__pycache__/
+**/slurm*.out

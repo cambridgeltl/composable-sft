@@ -13,6 +13,7 @@
 # limitations under the License.
 
 # Modified by the Cambridge Language Technology Lab
+import json
 import logging
 import os
 import sys
@@ -47,7 +48,10 @@ from dp.utils_udp import (
 )
 
 from sft import (
+    load_multisource_dataset,
+    load_single_dataset,
     LotteryTicketSparseFineTuner,
+    MultiSourcePlugin,
     SFT,
     SftArguments,
 )
@@ -98,6 +102,9 @@ class DataTrainingArguments:
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
 
+    multisource_data: Optional[str] = field(
+        default=None, metadata={"help": "File describing JSON descriptor of multi-source data."}
+    )
     dataset_name: Optional[str] = field(
         default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
@@ -106,17 +113,6 @@ class DataTrainingArguments:
     )
     eval_split: Optional[str] = field(
         default='validation', metadata={"help": "The split to evaluate on."}
-    )
-    train_file: Optional[str] = field(
-        default=None, metadata={"help": "The input training data file (a csv or JSON file)."}
-    )
-    validation_file: Optional[str] = field(
-        default=None,
-        metadata={"help": "An optional input evaluation data file to evaluate on (a csv or JSON file)."},
-    )
-    test_file: Optional[str] = field(
-        default=None,
-        metadata={"help": "An optional input test data file to predict on (a csv or JSON file)."},
     )
     max_examples: int = field(
         default=None,
@@ -148,6 +144,12 @@ class DataTrainingArguments:
             "help": "Whether to pad all samples to model maximum sentence length. "
             "If False, will pad the samples dynamically when batching to the maximum length in the batch. More "
             "efficient on GPU but very bad for TPU."
+        },
+    )
+    max_seq_length: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "Maximum sequence length; longer sequences will be discarded."
         },
     )
     max_train_samples: Optional[int] = field(
@@ -212,23 +214,6 @@ def main():
     # Set seed
     set_seed(training_args.seed)
 
-    if data_args.dataset_name is not None:
-        # Downloading and loading a dataset from the hub.
-        raw_datasets = load_dataset(
-            data_args.dataset_name,
-            data_args.dataset_config_name,
-            cache_dir=model_args.cache_dir
-        )
-    else:
-        data_files = {}
-        if data_args.train_file is not None:
-            data_files["train"] = data_args.train_file
-        if data_args.validation_file is not None:
-            data_files["validation"] = data_args.validation_file
-        if data_args.test_file is not None:
-            data_files["test"] = data_args.test_file
-        extension = data_args.train_file.split(".")[-1]
-        raw_datasets = load_dataset(extension, data_files=data_files, cache_dir=model_args.cache_dir)
     # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
     # https://huggingface.co/docs/datasets/loading_datasets.html.
 
@@ -248,6 +233,53 @@ def main():
         cache_dir=model_args.cache_dir,
         use_fast=model_args.use_fast,
     )
+
+    padding = "max_length" if data_args.pad_to_max_length else False
+    preprocessor = dataset_preprocessor(
+        tokenizer,
+        label2id,
+        padding,
+    )
+
+    if data_args.multisource_data is None:
+        dataset_descriptor = {
+            'name': data_args.dataset_name,
+            'config_name': data_args.dataset_config_name,
+        }
+
+        if not training_args.do_train:
+            dataset_descriptor['train_split'] = None
+        if not training_args.do_eval:
+            dataset_descriptor['validation_split'] = None
+
+        data = load_single_dataset(
+            dataset_descriptor,
+            training_args,
+            preprocessor=preprocessor,
+            cache_dir=model_args.cache_dir,
+            max_seq_length=data_args.max_seq_length,
+            preprocessing_num_workers=data_args.preprocessing_num_workers,
+            overwrite_cache=data_args.overwrite_cache,
+        )
+        lang_sfts = None
+
+    else:
+        with open(data_args.multisource_data) as f:
+            multisource_json = json.load(f)
+
+        data, lang_sfts = load_multisource_dataset(
+            multisource_json,
+            training_args,
+            preprocessor=preprocessor,
+            cache_dir=model_args.cache_dir,
+            max_seq_length=data_args.max_seq_length,
+            preprocessing_num_workers=data_args.preprocessing_num_workers,
+            overwrite_cache=data_args.overwrite_cache,
+        )
+
+    train_dataset = data['train'] if training_args.do_train else None
+    eval_dataset = data[data_args.eval_split] if training_args.do_eval else None
+
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
         num_labels=num_labels,
@@ -268,46 +300,14 @@ def main():
         task_ft.apply(model, with_abs=True)
 
     if sft_args.lang_ft is not None:
+        if data_args.multisource_data:
+            raise ValueError(
+                '--lang_ft cannot be used with a multi-source dataset. '
+                'Use the "sft" field in the dataset JSON config instead.'
+            )
         lang_ft = SFT(sft_args.lang_ft)
         logger.info(f'Applying language fine-tuning {sft_args.lang_ft}')
         lang_ft.apply(model, with_abs=False)
-
-    task_name = 'dp'
-    
-    padding = "max_length" if data_args.pad_to_max_length else False
-    preprocessor = dataset_preprocessor(tokenizer, label2id, padding)
-
-    train_dataset = None
-    if training_args.do_train:
-        if "train" not in raw_datasets:
-            raise ValueError("--do_train requires a train dataset")
-        train_dataset = raw_datasets["train"]
-        if data_args.max_train_samples is not None:
-            train_dataset = train_dataset.select(range(data_args.max_train_samples))
-        with training_args.main_process_first(desc="train dataset map pre-processing"):
-            train_dataset = train_dataset.map(
-                preprocessor,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer on train dataset",
-            )
-
-    eval_dataset = None
-    if training_args.do_eval:
-        if data_args.eval_split not in raw_datasets:
-            raise ValueError(f'No evaluation split {data_args.eval_split} present.')
-        eval_dataset = raw_datasets[data_args.eval_split]
-        if data_args.max_eval_samples is not None:
-            eval_dataset = eval_dataset.select(range(data_args.eval_train_samples))
-        with training_args.main_process_first(desc="eval dataset map pre-processing"):
-            eval_dataset = eval_dataset.map(
-                preprocessor,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer on eval dataset",
-            )
 
     if sft_args.freeze_layer_norm:
         for n, p in model.named_parameters():
@@ -326,7 +326,12 @@ def main():
 
     training_args.use_legacy_prediction_loop = True
     # Initialize our Trainer
-    trainer = DependencyParsingTrainer(LotteryTicketSparseFineTuner)(
+    trainer_cls = LotteryTicketSparseFineTuner
+    trainer_cls = DependencyParsingTrainer(trainer_cls)
+    # Optional if using single-source training
+    trainer_cls = MultiSourcePlugin(trainer_cls)
+
+    trainer = trainer_cls(
         sft_args=sft_args,
         maskable_params=maskable_params,
         model=model,
@@ -334,6 +339,7 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         data_collator=data_collator,
+        source_sfts=lang_sfts,
     )
 
     # Training

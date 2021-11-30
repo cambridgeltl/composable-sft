@@ -13,6 +13,7 @@
 # limitations under the License.
 
 # Modified by the Cambridge Language Technology Lab
+import json
 import logging
 import os
 import random
@@ -22,7 +23,7 @@ from typing import Optional
 
 import datasets
 import numpy as np
-from datasets import load_dataset, load_metric
+from datasets import ClassLabel, load_dataset, load_metric
 import torch
 
 import transformers
@@ -43,7 +44,10 @@ from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 from sft import (
+    load_multisource_dataset,
+    load_single_dataset,
     LotteryTicketSparseFineTuner,
+    MultiSourcePlugin,
     SFT,
     SftArguments,
 )
@@ -65,15 +69,26 @@ class DataTrainingArguments:
     into argparse arguments to be able to specify them on
     the command line.
     """
+    multisource_data: Optional[str] = field(
+        default=None, metadata={"help": "JSON multi-source dataset descriptor."}
+    )
     dataset_name: str = field(
         default=None, metadata={"help": "Name of NLI dtaaset."}
     )
     dataset_config_name: str = field(
         default=None, metadata={"help": "Evaluation language. Also train language if `train_language` is set to None."}
     )
+    train_file: Optional[str] = field(
+        default=None,
+        metadata={"help": "An optional input train data file (tsv file)."},
+    )
+    validation_file: Optional[str] = field(
+        default=None,
+        metadata={"help": "An optional input validation data file (tsv file)."},
+    )
     test_file: Optional[str] = field(
         default=None,
-        metadata={"help": "An optional input test data file to predict on (a csv or JSON file)."},
+        metadata={"help": "An optional input test data (tsv file)."},
     )
     label_file: Optional[str] = field(
         default=None,
@@ -214,51 +229,72 @@ def main():
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
-    # In distributed training, the load_dataset function guarantees that only one local process can concurrently
-    # download the dataset.
-    # Downloading and loading xnli dataset from the hub.
-    if training_args.do_train:
-        train_dataset = load_dataset(
-            data_args.dataset_name,
-            data_args.dataset_config_name,
-            split="train",
-            cache_dir=model_args.cache_dir,
-        )
-        label_list = train_dataset.features["label"].names
-
-    if training_args.do_eval:
+    if data_args.multisource_data is None:
+        dataset_descriptor = {}
         if data_args.dataset_name:
-            eval_dataset = load_dataset(
-                data_args.dataset_name,
-                data_args.dataset_config_name,
-                split=data_args.eval_split,
-                cache_dir=model_args.cache_dir
-            )
-            label_list = eval_dataset.features["label"].names
-            #label2id = {i: i for i in range(len(label_list))}
+            dataset_descriptor['name'] = data_args.dataset_name
+            if data_args.dataset_config_name:
+                dataset_descriptor['config_name'] = data_args.dataset_config_name
         else:
-            eval_dataset = load_dataset(
-                'csv',
-                delimiter='\t',
-                data_files={'test': data_args.test_file},
-                cache_dir=model_args.cache_dir,
-            )['test']
-            label_list = []
-            with open(data_args.label_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        label_list.append(line)
-            label2id = {l: i for i, l in enumerate(label_list)}
-            def to_label_id(example):
-                example['label'] = label2id[example['label']]
-                return example
-            eval_dataset = eval_dataset.map(to_label_id)
+            if data_args.train_file:
+                dataset_descriptor['train_file'] = data_args.train_file
+            if data_args.validation_file:
+                dataset_descriptor['validation_file'] = data_args.validation_file
+            if data_args.test_file:
+                dataset_descriptor['test_file'] = data_args.test_file
 
-        print(eval_dataset[0])
-        
-    # Labels
+            dataset_descriptor['file_type'] = 'csv'
+            dataset_descriptor['load_kwargs'] = {
+                'delimiter': '\t',
+            }
+
+        if not training_args.do_train:
+            dataset_descriptor['train_split'] = None
+        if not training_args.do_eval:
+            dataset_descriptor['validation_split'] = None
+
+        raw_datasets = load_single_dataset(
+            dataset_descriptor,
+            training_args,
+            cache_dir=model_args.cache_dir,
+            overwrite_cache=data_args.overwrite_cache,
+        )
+        lang_sfts = None
+    else:
+        with open(data_args.multisource_data) as f:
+            multisource_json = json.load(f)
+
+        raw_datasets, lang_sfts = load_multisource_dataset(
+            multisource_json,
+            training_args,
+            cache_dir=model_args.cache_dir,
+            overwrite_cache=data_args.overwrite_cache,
+        )
+
+    def get_labels(dataset):
+        if isinstance(dataset.features['label'], ClassLabel):
+            return dataset.features['label'].names
+
+        if data_args.label_file is None:
+            raise ValueError('--label_file must be provided if dataset is not a datasets.Dataset')
+
+        label_list = []
+        with open(data_args.label_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    label_list.append(line)
+        return label_list
+
+    if training_args.do_train:
+        train_dataset = raw_datasets['train']
+        label_list = get_labels(train_dataset)
+    if training_args.do_eval:
+        eval_dataset = raw_datasets[data_args.eval_split]
+        label_list = get_labels(eval_dataset)
+
     num_labels = len(label_list)
+    label2id = {l: i for i, l in enumerate(label_list)}
 
     # Load pretrained model and tokenizer
     # In distributed training, the .from_pretrained methods guarantee that only one local process can concurrently
@@ -271,6 +307,7 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
         do_lower_case=model_args.do_lower_case,
@@ -279,6 +316,7 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+
     model = AutoModelForSequenceClassification.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
@@ -294,6 +332,11 @@ def main():
         task_ft.apply(model, with_abs=True)
 
     if sft_args.lang_ft is not None:
+        if data_args.multisource_data:
+            raise ValueError(
+                '--lang_ft cannot be used with a multi-source dataset. '
+                'Use the "sft" field in the dataset JSON config instead.'
+            )
         lang_ft = SFT(sft_args.lang_ft)
         logger.info(f'Applying language fine-tuning {sft_args.lang_ft}')
         lang_ft.apply(model, with_abs=False)
@@ -308,17 +351,20 @@ def main():
 
     def preprocess_function(examples):
         # Tokenize the texts
-        return tokenizer(
+        tokenized_examples = tokenizer(
             examples["premise"],
             examples["hypothesis"],
             padding=padding,
             max_length=data_args.max_seq_length,
             truncation=True,
         )
+        tokenized_examples['label'] = [
+            label2id.get(label, label)
+            for label in examples['label']
+        ]
+        return tokenized_examples
 
     if training_args.do_train:
-        if data_args.max_train_samples is not None:
-            train_dataset = train_dataset.select(range(data_args.max_train_samples))
         with training_args.main_process_first(desc="train dataset map pre-processing"):
             train_dataset = train_dataset.map(
                 preprocess_function,
@@ -331,8 +377,6 @@ def main():
             logger.info(f"Sample {index} of the training set: {train_dataset[index]}.")
 
     if training_args.do_eval:
-        if data_args.max_eval_samples is not None:
-            eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
         with training_args.main_process_first(desc="validation dataset map pre-processing"):
             eval_dataset = eval_dataset.map(
                 preprocess_function,
@@ -370,7 +414,9 @@ def main():
     ]
 
     # Initialize our Trainer
-    trainer = LotteryTicketSparseFineTuner(
+    trainer_cls = LotteryTicketSparseFineTuner
+    trainer_cls = MultiSourcePlugin(trainer_cls)
+    trainer = trainer_cls(
         sft_args=sft_args,
         maskable_params=maskable_params,
         model=model,
@@ -380,6 +426,7 @@ def main():
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
+        source_sfts=lang_sfts,
     )
 
     # Training

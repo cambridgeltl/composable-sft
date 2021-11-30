@@ -8,7 +8,8 @@ from tqdm import tqdm
 
 from transformers import logging, Trainer, TrainerCallback
 
-from sft import SFT, SftArguments
+from .sft import SFT
+from .sft_args import SftArguments
 
 logger = logging.get_logger(__name__)
 
@@ -40,11 +41,13 @@ class SparseFineTuner(Trainer):
 
     def __init__(
         self,
+        *args,
         sft_args=None,
         maskable_params=None,
         **kwargs
     ):
-        super().__init__(**kwargs)
+        super().__init__(*args, **kwargs)
+
         if sft_args is None:
             self.sft_args = SftArguments()
         else:
@@ -113,7 +116,7 @@ class SparseFineTuner(Trainer):
         for _, p in self._mask.items():
             p.data.zero_()
 
-    def sft(self):
+    def sft(self, eps=1e-7):
         """ Calculates the sparse difference vector between the current
         parameter values and the pre-trained values.
 
@@ -125,6 +128,9 @@ class SparseFineTuner(Trainer):
             for n, p in self.model.named_parameters():
                 if n in self.maskable_params:
                     delta = p - self._original_params[n].to(p.device)
+                    abs_delta = torch.abs(delta)
+                    significant = abs_delta > eps
+                    delta = delta * significant
                     diffs.add_param(n, delta, diff=True)
                 elif p.requires_grad:
                     # p is to be stored in full rather than as a difference.

@@ -1,0 +1,135 @@
+{
+    "en": {
+        "sft": "cambridgeltl/xlmr-lang-sft-en-small",
+        "data": {
+            "name": "multi_nli",
+            "validation_split": "validation_matched"
+        }
+    },
+    "ar": {
+        "sft": "cambridgeltl/xlmr-lang-sft-ar-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "ar",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    },
+    "bg": {
+        "sft": "cambridgeltl/xlmr-lang-sft-bg-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "bg",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    },
+    "de": {
+        "sft": "cambridgeltl/xlmr-lang-sft-de-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "de",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    },
+    "el": {
+        "sft": "cambridgeltl/xlmr-lang-sft-el-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "el",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    },
+    "es": {
+        "sft": "cambridgeltl/xlmr-lang-sft-es-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "es",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    },
+    "fr": {
+        "sft": "cambridgeltl/xlmr-lang-sft-fr-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "fr",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    },
+    "hi": {
+        "sft": "cambridgeltl/xlmr-lang-sft-hi-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "hi",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    },
+    "ru": {
+        "sft": "cambridgeltl/xlmr-lang-sft-ru-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "ru",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    },
+    "sw": {
+        "sft": "cambridgeltl/xlmr-lang-sft-swa-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "sw",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    },
+    "th": {
+        "sft": "cambridgeltl/xlmr-lang-sft-th-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "th",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    },
+    "tr": {
+        "sft": "cambridgeltl/xlmr-lang-sft-tr-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "tr",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    },
+    "ur": {
+        "sft": "cambridgeltl/xlmr-lang-sft-ur-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "ur",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    },
+    "vi": {
+        "sft": "cambridgeltl/xlmr-lang-sft-vi-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "vi",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    },
+    "zh": {
+        "sft": "cambridgeltl/xlmr-lang-sft-zh-small",
+        "data": {
+            "name": "xnli",
+            "config_name": "zh",
+            "train_split": "test",
+            "validation_split": "validation"
+        }
+    }
+}

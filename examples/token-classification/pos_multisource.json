@@ -1,0 +1,142 @@
+{
+    "el": {
+        "sft": "cambridgeltl/mbert-lang-sft-el-small",
+        "data": {
+            "name": "universal_dependencies",
+            "config_name": "el_gdt",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    },
+    "en": {
+        "sft": "cambridgeltl/mbert-lang-sft-en-small",
+        "data": {
+            "name": "universal_dependencies",
+            "config_name": "en_ewt",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    },
+    "et": {
+        "data": {
+        "sft": "cambridgeltl/mbert-lang-sft-et-small",
+            "name": "universal_dependencies",
+            "config_name": "et_edt",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    },
+    "eu": {
+        "sft": "cambridgeltl/mbert-lang-sft-eu-small",
+        "data": {
+            "name": "universal_dependencies",
+            "config_name": "eu_bdt",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    },
+    "fr": {
+        "sft": "cambridgeltl/mbert-lang-sft-fr-small",
+        "data": {
+            "name": "universal_dependencies",
+            "config_name": "fr_gsd",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    },
+    "ko": {
+        "sft": "cambridgeltl/mbert-lang-sft-ko-small",
+        "data": {
+            "name": "universal_dependencies",
+            "config_name": "ko_gsd",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    },
+    "vi": {
+        "sft": "cambridgeltl/mbert-lang-sft-vi-small",
+        "data": {
+            "name": "universal_dependencies",
+            "config_name": "vi_vtb",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    },
+    "tr": {
+        "sft": "cambridgeltl/mbert-lang-sft-tr-small",
+        "data": {
+            "name": "universal_dependencies",
+            "config_name": "tr_boun",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    },
+    "hi": {
+        "sft": "cambridgeltl/mbert-lang-sft-hi-small",
+        "data": {
+            "name": "universal_dependencies",
+            "config_name": "hi_hdtb",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    },
+    "ar": {
+        "sft": "cambridgeltl/mbert-lang-sft-ar-small",
+        "data": {
+            "name": "universal_dependencies",
+            "config_name": "ar_pud",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    },
+    "ja": {
+        "sft": "cambridgeltl/mbert-lang-sft-ja-small",
+        "data": {
+            "name": "universal_dependencies",
+            "config_name": "ja_gsd",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    },
+    "zh": {
+        "sft": "cambridgeltl/mbert-lang-sft-zh-small",
+        "data": {
+            "name": "universal_dependencies",
+            "config_name": "zh_gsd",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    },
+    "ru": {
+        "sft": "cambridgeltl/mbert-lang-sft-ru-small",
+        "data": {
+            "name": "universal_dependencies",
+            "config_name": "ru_taiga",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    },
+    "fa": {
+        "sft": "cambridgeltl/mbert-lang-sft-fa-small",
+        "data": {
+            "name": "universal_dependencies",
+            "config_name": "fa_perdt",
+            "max_train_samples": 15000,
+            "max_eval_samples": 1000,
+            "test_split": null
+        }
+    }
+}

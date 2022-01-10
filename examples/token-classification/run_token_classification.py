@@ -35,6 +35,7 @@ from transformers import (
     EarlyStoppingCallback,
     HfArgumentParser,
     PreTrainedTokenizerFast,
+    Trainer,
     TrainingArguments,
     set_seed,
 )
@@ -540,7 +541,8 @@ def main():
     ]
 
     # Initialize our Trainer
-    trainer_cls = LotteryTicketSparseFineTuner
+    trainer_cls = Trainer
+    trainer_cls = LotteryTicketSparseFineTuner(trainer_cls)
     trainer_cls = MultiSourcePlugin(trainer_cls)
     trainer = trainer_cls(
         sft_args=sft_args,

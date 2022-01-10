@@ -16,8 +16,8 @@ python run_token_classification.py \
   --per_device_eval_batch_size 8 \
   --task_name pos \
   --overwrite_output_dir \
-  --full_ft_max_epochs_per_iteration 3 \
-  --sparse_ft_max_epochs_per_iteration 10 \
+  --full_ft_max_epochs_per_iteration 1 \
+  --sparse_ft_max_epochs_per_iteration 1 \
   --save_steps 1000000 \
   --ft_params_num 14155776 \
   --evaluation_strategy steps \

@@ -95,13 +95,13 @@ class SftArguments:
             "help": "Maximum of steps per parameter selection iteration during sparse fine-tuning."
         },
     )
-    full_ft_max_epochs_per_iteration: Optional[int] = field(
+    full_ft_max_epochs_per_iteration: Optional[float] = field(
         default=None,
         metadata={
             "help": "Maximum number of epochs per parameter selection iteration during full fine-tuning."
         },
     )
-    sparse_ft_max_epochs_per_iteration: Optional[int] = field(
+    sparse_ft_max_epochs_per_iteration: Optional[float] = field(
         default=None,
         metadata={
             "help": "Maximum number of epochs per parameter selection iteration during sparse fine-tuning."

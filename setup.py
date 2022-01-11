@@ -38,5 +38,5 @@ setup(
         'seqeval',
         'transformers>=4.9',
     ],
-    python_requires='>=3.9',
+    python_requires='>=3.7',
 )

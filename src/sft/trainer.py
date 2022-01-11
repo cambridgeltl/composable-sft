@@ -1,4 +1,5 @@
 import itertools
+import math
 import os
 import random
 
@@ -138,18 +139,7 @@ def SparseFineTuner(_Trainer):
                         diffs.add_param(n, p, diff=False)
                 return diffs
 
-        def train(self, *args, **kwargs):
-            if issubclass(_Trainer, Trainer):
-                self.optimizer = None
-                self.lr_scheduler = None
-                self.set_training_len(
-                    self.sft_args.full_ft_min_steps_per_iteration,
-                    self.sft_args.full_ft_max_steps_per_iteration,
-                    self.sft_args.full_ft_max_epochs_per_iteration,
-                )
-            return super().train(*args, **kwargs)
-
-        def set_training_len(self, min_steps, max_steps, max_epochs):
+        def set_training_len(self, train_dataloader, min_steps, max_steps, max_epochs):
             if not issubclass(_Trainer, Trainer):
                 raise NotImplementedError
 
@@ -161,9 +151,11 @@ def SparseFineTuner(_Trainer):
             if max_epochs is None:
                 self.args.max_steps = max_steps
             else:
-                n_steps = max_epochs * len(self.train_dataset) // (
-                    self.args.per_device_train_batch_size *
-                    self.args.gradient_accumulation_steps
+                n_steps = math.ceil(
+                    max_epochs * (
+                        len(train_dataloader) //
+                        self.args.gradient_accumulation_steps
+                    )
                 )
                 logger.info(f'{max_epochs} epochs = {n_steps} steps')
             

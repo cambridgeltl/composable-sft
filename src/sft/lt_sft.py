@@ -14,6 +14,7 @@ class LotteryTicketSparseFineTuner(SparseFineTuner):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        logger.setLevel(self.args.get_process_log_level())
         if self.sft_args.ft_params_num is None:
             self.n_tunable_params = int(
                 self.sft_args.ft_params_proportion * self._num_maskable_params
@@ -26,7 +27,8 @@ class LotteryTicketSparseFineTuner(SparseFineTuner):
             diffs = []
             for n, p in tqdm(
                 list(self.model.named_parameters()),
-                desc='Finding masking threshold'
+                desc='Finding masking threshold',
+                disable=self.args.local_rank > 0 or self.args.disable_tqdm,
             ):
                 if n in self.maskable_params:
                     delta = p - self._original_params[n].to(p.device)
@@ -48,7 +50,8 @@ class LotteryTicketSparseFineTuner(SparseFineTuner):
             n_masked = 0
             for n, p in tqdm(
                 list(self.model.named_parameters()),
-                desc='Updating masks'
+                desc='Updating masks',
+                disable=self.args.local_rank > 0 or self.args.disable_tqdm,
             ):
                 if n in self.maskable_params:
                     abs_delta = (p - self._original_params[n].to(p.device)).abs()

@@ -347,9 +347,9 @@ def main():
         trainer.train(
             model_path=model_args.model_name_or_path if os.path.isdir(model_args.model_name_or_path) else None
         )
-        trainer.save_model()
 
-        trainer.sft().save(training_args.output_dir)
+        if training_args.local_rank <= 0:
+            trainer.sft().save(training_args.output_dir)
 
     # Evaluation
     if training_args.do_eval:

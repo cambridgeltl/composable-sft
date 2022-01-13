@@ -1,4 +1,5 @@
 import itertools
+import logging
 import os
 import random
 
@@ -6,12 +7,12 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from transformers import logging, Trainer, TrainerCallback
+from transformers import Trainer, TrainerCallback
 
 from .sft import SFT
 from .sft_args import SftArguments
 
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class _RegLossCalculationCallback(TrainerCallback):
@@ -47,6 +48,7 @@ class SparseFineTuner(Trainer):
         **kwargs
     ):
         super().__init__(*args, **kwargs)
+        logger.setLevel(self.args.get_process_log_level())
 
         if sft_args is None:
             self.sft_args = SftArguments()
@@ -162,8 +164,8 @@ class SparseFineTuner(Trainer):
             else:
                 self.args.max_steps = max_steps
 
-    def training_step(self, model, inputs):
-        loss = super().training_step(model, inputs)
+    def training_step(self, *args, **kwargs):
+        loss = super().training_step(*args, **kwargs)
 
         l1_reg = (
             self.sft_args.sparse_l1_reg
@@ -189,7 +191,7 @@ class SparseFineTuner(Trainer):
             self.calculate_reg_loss = False
 
         if self._masking_enabled:
-            for n, p in model.named_parameters():
+            for n, p in self.model.named_parameters():
                 if n in self.maskable_params and p.grad is not None:
                     p.grad *= self._mask[n]
 

@@ -3,6 +3,9 @@ This is a library for training and applying sparse fine-tunings with `torch` and
 
 ## News
 
+### 2022/01/13
+`composable-sft` now supports multi-GPU training with `DistributedDataParallel`. This can be invoked in the same way as for a vanilla `transformers` `Trainer`.
+
 ### 2021/11/30
 New utilities have been added for [multi-source training](#multi-source-training) (see [Ansell et al. (2021)](https://aclanthology.org/2021.findings-emnlp.410/)) and multi-source task SFTs have been released for some tasks. SFTs and examples scripts are now also available for question answering, and we have released language SFTs for many new languages (see [MODELS](MODELS.md)). We recommend the use of multi-source task SFTs where available, as they are substantially better than the single-source SFTs for most languages.
 

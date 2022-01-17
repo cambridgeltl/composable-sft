@@ -25,4 +25,5 @@ python run_dp.py \
   --metric_for_best_model eval_las \
   --load_best_model_at_end \
   --eval_split validation \
-  --save_total_limit 2
+  --save_total_limit 2 \
+  --weight_decay 0.01

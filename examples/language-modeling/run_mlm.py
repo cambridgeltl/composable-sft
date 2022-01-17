@@ -35,6 +35,7 @@ from transformers import (
     DataCollatorForLanguageModeling,
     EarlyStoppingCallback,
     HfArgumentParser,
+    Trainer,
     TrainingArguments,
     set_seed,
 )
@@ -524,7 +525,9 @@ def main():
     ]
 
     # Initialize our Trainer
-    trainer = LotteryTicketSparseFineTuner(
+    trainer_cls = Trainer
+    trainer_cls = LotteryTicketSparseFineTuner(trainer_cls)
+    trainer = trainer_cls(
         sft_args=sft_args,
         maskable_params=maskable_params,
         model=model,

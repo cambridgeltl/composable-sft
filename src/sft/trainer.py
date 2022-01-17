@@ -1,4 +1,5 @@
 import itertools
+import logging
 import math
 import os
 import random
@@ -7,12 +8,12 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from transformers import logging, Trainer, TrainerCallback
+from transformers import Trainer, TrainerCallback
 
 from .sft import SFT
 from .sft_args import SftArguments
 
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class _RegLossCalculationCallback(TrainerCallback):
@@ -50,6 +51,7 @@ def SparseFineTuner(_Trainer):
             **kwargs,
         ):
             super().__init__(*args, **kwargs)
+            logger.setLevel(self.args.get_process_log_level())
 
             if sft_args is None:
                 self.sft_args = SftArguments()
@@ -117,6 +119,21 @@ def SparseFineTuner(_Trainer):
             for _, p in self._mask.items():
                 p.data.zero_()
 
+        def _check_weight_decay(self, optimizer):
+            maskable_params = {
+                self.model.get_parameter(n): n
+                for n in self.maskable_params
+            }
+            for param_group in optimizer.param_groups:
+                if param_group.get('weight_decay', 0.0) != 0.0:
+                    for p in param_group['params']:
+                        if p in maskable_params:
+                            raise RuntimeError(
+                                f'Parameter {maskable_params[p]} is not permitted '
+                                f'to have non-zero weight decay, as it is undergoing '
+                                f'sparse fine-tuning.'
+                            )
+
         def sft(self, eps=1e-7):
             """ Calculates the sparse difference vector between the current
             parameter values and the pre-trained values.
@@ -167,6 +184,16 @@ def SparseFineTuner(_Trainer):
                         self.args.max_steps = -1
                 else:
                     self.args.max_steps = max_steps
+
+        def train(self, *args, **kwargs):
+            if self.optimizer is not None:
+                self._check_weight_decay(self.optimizer)
+            return super().train(*args, **kwargs)
+
+        def create_optimizer(self, *args, **kwargs):
+            optimizer = super().create_optimizer(*args, **kwargs)
+            self._check_weight_decay(optimizer)
+            return optimizer
 
         def training_step(self, *args, **kwargs):
             loss = super().training_step(*args, **kwargs)

@@ -554,7 +554,7 @@ def main():
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
-        source_sfts=lang_sfts,
+        #source_sfts=lang_sfts,
     )
 
     # Training

@@ -12,7 +12,6 @@ from transformers import get_scheduler
 from .trainer import SparseFineTuner
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 def EliminationSparseFineTuner(_Trainer):
@@ -23,6 +22,7 @@ def EliminationSparseFineTuner(_Trainer):
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
+            logger.setLevel(self.args.get_process_log_level())
             if self.sft_args.ft_params_num is None:
                 self.n_tunable_params = int(
                     self.sft_args.ft_params_proportion * self._num_maskable_params
@@ -36,7 +36,7 @@ def EliminationSparseFineTuner(_Trainer):
                 for n, p in tqdm(
                     list(self.model.named_parameters()),
                     desc='Finding masking threshold',
-                    disable=self.args.local_rank > 0,
+                    disable=self.args.local_rank > 0 or self.args.disable_tqdm,
                 ):
                     if n in self.maskable_params:
                         delta = p - self._original_params[n].to(p.device)
@@ -57,7 +57,7 @@ def EliminationSparseFineTuner(_Trainer):
                 for n, p in tqdm(
                     list(self.model.named_parameters()),
                     desc='Updating masks',
-                    disable=self.args.local_rank > 0,
+                    disable=self.args.local_rank > 0 or self.args.disable_tqdm,
                 ):
                     if n in self.maskable_params:
                         abs_delta = (p - self._original_params[n].to(p.device)).abs()
@@ -65,10 +65,11 @@ def EliminationSparseFineTuner(_Trainer):
                         self._mask[n] = abs_delta > thresh
                         n_reset += int((~self._mask[n]).sum())
 
+                n_trainable = 0
                 for n, p in tqdm(
                     list(self.model.named_parameters()),
                     desc='Resetting parameters',
-                    disable=self.args.local_rank > 0,
+                    disable=self.args.local_rank > 0 or self.args.disable_tqdm,
                 ):
                     if not p.requires_grad:
                         continue
@@ -77,8 +78,13 @@ def EliminationSparseFineTuner(_Trainer):
                             (~self._mask[n]) * self._original_params[n].to(p.device) +
                             self._mask[n] * p
                         )
+                        n_trainable += int(torch.sum(self._mask[n]))
                     
-                logger.info(f'Reset {n_reset} params; {self._num_maskable_params - n_reset} not reset.')
+                logger.info(
+                    f'Reset {n_reset} params; '
+                    f'{self._num_maskable_params - n_reset} not reset; '
+                    f'{n_trainable} trainable.'
+                )
 
                 return n_reset
 
@@ -171,6 +177,8 @@ def EliminationSparseFineTuner(_Trainer):
             self.lr_scheduler = None
             self.args.lr_scheduler_type = 'linear'
             self.args.learning_rate /= 2.0
+            self.args.warmup_steps = 0
+            self.args.warmup_ratio = 0.0
             self.enable_masking()
             self.set_training_len(
                 train_dataloader,
@@ -178,7 +186,7 @@ def EliminationSparseFineTuner(_Trainer):
                 self.sft_args.sparse_ft_max_steps_per_iteration,
                 self.sft_args.sparse_ft_max_epochs_per_iteration,
             )
-            result = super().train(**kwargs)
+            result = super().train(*args, **kwargs)
             
             return result
 

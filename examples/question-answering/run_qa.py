@@ -598,6 +598,7 @@ def main():
 
     # Initialize our Trainer
     trainer_cls = QuestionAnsweringTrainer
+    trainer_cls = LotteryTicketSparseFineTuner(trainer_cls)
     trainer_cls = MultiSourcePlugin(trainer_cls)
     trainer = trainer_cls(
         sft_args=sft_args,

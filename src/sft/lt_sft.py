@@ -75,6 +75,8 @@ def LotteryTicketSparseFineTuner(_Trainer):
                     }
 
                 self.disable_masking()
+                self.optimizer = None
+                self.lr_scheduler = None
                 super().train(*args, **kwargs)
 
                 self.unfreeze_k_most_changed_params(
@@ -86,6 +88,8 @@ def LotteryTicketSparseFineTuner(_Trainer):
                         p.copy_(previous_params[n])
 
                 self.enable_masking()
+                self.optimizer = None
+                self.lr_scheduler = None
                 result = super().train(*args, **kwargs)
             
             return result

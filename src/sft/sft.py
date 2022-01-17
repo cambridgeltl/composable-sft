@@ -7,6 +7,8 @@ import torch
 from .hf_utils import pull_from_hf_model_hub
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 
 SFT_FILE_NAME = 'pytorch_diff.bin'
 
@@ -51,6 +53,7 @@ class SFT:
         name_or_path=None,
         version=None,
         cache_dir=None,
+        map_fn=None,
     ):
         if name_or_path is not None:
             if os.path.isdir(name_or_path):
@@ -64,22 +67,55 @@ class SFT:
 
             sft_file = os.path.join(sft_dir, SFT_FILE_NAME)
             tensors = torch.load(sft_file)
-            
+
+            expected_total_params = 0
             if 'diffs' in tensors:
                 self.diffs = {
-                    p: decode_sparse_tensor(d)
-                    for p, d in tensors['diffs'].items()
+                    n if map_fn is None else map_fn(n): decode_sparse_tensor(d)
+                    for n, d in tensors['diffs'].items()
                 }
+                expected_total_params += len(tensors['diffs'])
             else:
                 self.diffs = {}
 
             if 'abs' in tensors:
-                self.abs = tensors['abs']
+                self.abs = {
+                    n if map_fn is None else map_fn(n): p
+                    for n, p in tensors['abs'].items()
+                }
+                expected_total_params += len(tensors['abs'])
             else:
                 self.abs = {}
 
-            if not self.diffs and not self.abs:
-                logger.warn(f'Empty SFT {name_or_path}')
+            total_params = len(set(self.diffs.keys()) | set(self.abs.keys()))
+            if total_params < expected_total_params:
+                if map_fn is None:
+                    shared_params = set(self.diffs.keys()) & set(self.abs.keys())
+                    raise RuntimeError(
+                        f'SFT {name_or_path} contained both differences and dense values '
+                        f'for the following parameters: {sorted(list(shared_params))}.'
+                    )
+                else:
+                    seen = set()
+                    duplicates = []
+                    for n in (
+                        list(tensors.get('diffs', {}).keys()) +
+                        list(tensors.get('abs', {}).keys())
+                    ):
+                        mapped_n = map_fn(n)
+                        if mapped_n in seen:
+                            duplicates.append(f'{mapped_n} <- {n}')
+                        else:
+                            seen.add(mapped_n)
+                    duplicates = '\n'.join(sorted(duplicates))
+                    raise RuntimeError(
+                        f'The following duplicate mappings arose while loading SFT '
+                        f'{name_or_path}:\n{duplicates}.'
+                    )
+
+            if total_params == 0:
+                logger.error(f'Empty SFT {name_or_path}')
+            
         else:
             self.diffs = {}
             self.abs = {}
@@ -102,20 +138,66 @@ class SFT:
         save_path = os.path.join(save_dir, SFT_FILE_NAME)
         torch.save(tensors, save_path)
 
-    def apply(self, model, with_abs=True):
+    def apply(
+        self,
+        model,
+        with_abs=True,
+        allow_unused=False,
+        warn=False,
+    ):
         with torch.no_grad():
+            if warn:
+                unused = []
+                all_params = set(n for n, _ in model.named_parameters())
+
             for name in self.diffs.keys():
+                #logger.info(name)
                 diff = self.diffs[name]
-                tensor = model.get_parameter(name)
+                try:
+                    tensor = model.get_parameter(name)
+                except AttributeError:
+                    if allow_unused:
+                        if warn:
+                            unused.append(name)
+                        continue
+                    else:
+                        raise
+
                 if diff.device != tensor.device:
                     diff = diff.to(tensor.device)
                     self.diffs[name] = diff
                 tensor += diff
 
+                if warn:
+                    all_params.remove(name)
+
             if with_abs:
                 for name, value in self.abs.items():
-                    tensor = model.get_parameter(name)
+                    try:
+                        tensor = model.get_parameter(name)
+                    except AttributeError:
+                        if allow_unused:
+                            if warn:
+                                unused.append(name)
+                            continue
+                        else:
+                            raise
+                    
                     tensor.copy_(value)
+
+                    if warn:
+                        all_params.remove(name)
+            
+            if warn:
+                if unused:
+                    logger.info('The following SFT parameters were not present in the base model:')
+                    for n in sorted(unused):
+                        logger.info(n)
+
+                if all_params:
+                    logger.info('The following base model parameters were not present in the SFT:')
+                    for n in sorted(list(all_params)):
+                        logger.info(n)
 
     def revert(self, model):
         with torch.no_grad():

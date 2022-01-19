@@ -65,6 +65,7 @@ def LotteryTicketSparseFineTuner(_Trainer):
         def train(self, *args, **kwargs):
             self.freeze()
             result = None
+            train_dataloader = self.get_train_dataloader()
             
             for it in range(self.sft_args.n_ft_iterations):
                 logger.info(f'Fine-tuning iteration {it+1}')
@@ -77,6 +78,12 @@ def LotteryTicketSparseFineTuner(_Trainer):
                 self.disable_masking()
                 self.optimizer = None
                 self.lr_scheduler = None
+                self.set_training_len(
+                    train_dataloader,
+                    self.sft_args.full_ft_min_steps_per_iteration,
+                    self.sft_args.full_ft_max_steps_per_iteration,
+                    self.sft_args.full_ft_max_epochs_per_iteration,
+                )
                 super().train(*args, **kwargs)
 
                 self.unfreeze_k_most_changed_params(
@@ -90,6 +97,12 @@ def LotteryTicketSparseFineTuner(_Trainer):
                 self.enable_masking()
                 self.optimizer = None
                 self.lr_scheduler = None
+                self.set_training_len(
+                    train_dataloader,
+                    self.sft_args.sparse_ft_min_steps_per_iteration,
+                    self.sft_args.sparse_ft_max_steps_per_iteration,
+                    self.sft_args.sparse_ft_max_epochs_per_iteration,
+                )
                 result = super().train(*args, **kwargs)
             
             return result

@@ -161,7 +161,7 @@ class SFT:
                             unused.append(name)
                         continue
                     else:
-                        raise
+                        raise AttributeError(f'SFT contains parameter {name} not found in model.')
 
                 if diff.device != tensor.device:
                     diff = diff.to(tensor.device)
@@ -181,7 +181,7 @@ class SFT:
                                 unused.append(name)
                             continue
                         else:
-                            raise
+                            raise AttributeError(f'SFT contains parameter {name} not found in model.')
                     
                     tensor.copy_(value)
 

@@ -15,6 +15,7 @@ Identifiers for language SFTs are of the form `cambridgeltl/{base_model}-lang-sf
 | Ashaninka | cni | &cross; | &check; |
 | Bambara | bm | &check; | &cross; |
 | Basque | eu | &check; | &cross; |
+| Bengali | bn | &check; | &cross; |
 | Bribri | bzd | &cross; | &check; |
 | Bulgarian | bg | &cross; | &check; |
 | Buryat | bxr | &check; | &cross; |
@@ -32,6 +33,7 @@ Identifiers for language SFTs are of the form `cambridgeltl/{base_model}-lang-sf
 | Hausa | hau | &check; | &cross; |
 | Hindi | hi | &check; | &check; |
 | Igbo | ibo | &check; | &cross; |
+| Indonesian | id | &check; | &cross; |
 | Japanese | ja | &check; | &cross; |
 | Komi Zyrian | kpv | &check; | &cross; |
 | Korean | ko | &check; | &check; |
@@ -44,6 +46,7 @@ Identifiers for language SFTs are of the form `cambridgeltl/{base_model}-lang-sf
 | Nigerian-Pidgin | pcm | &check; | &cross; |
 | Otomi | oto | &cross; | &check; |
 | Persian | fa | &check; | &cross; |
+| Portuguese | pt | &check; | &cross; |
 | Quechua | quy | &cross; | &check; |
 | Raramuri | tar | &cross; | &check; |
 | Romanian | ro | &check; | &check; |
@@ -52,6 +55,7 @@ Identifiers for language SFTs are of the form `cambridgeltl/{base_model}-lang-sf
 | Shipibo-Konibo | shp | &cross; | &check; |
 | Spanish | es | &check; | &check; |
 | Swahili | swa | &check; | &cross; |
+| Tamil | ta | &check; | &cross; |
 | Thai | th | &check; | &check; |
 | Turkish | tr | &check; | &check; |
 | Upper Sorbian | hsb | &check; | &cross; |

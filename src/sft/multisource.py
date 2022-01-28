@@ -1,6 +1,7 @@
 import json
 import logging
 import math
+import random
 
 from typing import Dict, Optional
 
@@ -23,70 +24,6 @@ logger.setLevel(logging.INFO)
 BATCH_SOURCE_KEY = '_source'
 
 
-class _MultiSourceSampler:
-
-    def __init__(self,
-        dataset_sizes,
-        example2id,
-        batch_size,
-        random=False,
-    ):
-        self.dataset_sizes = dataset_sizes
-        self.example2id = example2id
-        self.batch_size = batch_size
-
-        self.sequence = []
-        for source, size in sorted(list(self.dataset_sizes.items())):
-            if random:
-                perm = np.random.permutation(size)
-            else:
-                perm = np.arange(size)
-            for begin in range(0, size, batch_size):
-                end = min(begin + batch_size, size)
-                self.sequence.append((source, perm[begin : end]))
-
-        if random:
-            np.random.shuffle(self.sequence)
-
-        self.i = 0
-
-    def __next__(self):
-        if self.i >= len(self.sequence):
-            raise StopIteration
-
-        source, indices = self.sequence[self.i]
-        self.i += 1
-        batch = [
-            self.example2id[(source, index)]
-            for index in indices
-        ]
-        return batch
-
-
-class MultiSourceBatchSampler(Sampler[int]):
-
-    def __init__(self, dataset, batch_size, random=False):
-        self.dataset_sizes = {k: len(v) for k, v in dataset.datasets.items()}
-        self.example2id = dataset.example2id
-        self.batch_size = batch_size
-        self.random = random
-        self.length = sum(
-            math.ceil(s / batch_size)
-            for s in self.dataset_sizes.values()
-        )
-
-    def __iter__(self):
-        return _MultiSourceSampler(
-            self.dataset_sizes,
-            self.example2id,
-            self.batch_size,
-            random=self.random,
-        )
-
-    def __len__(self):
-        return self.length
-
-
 class MultiSourceDataset(Dataset):
 
     def __init__(self, datasets: Dict[str, Dataset]):
@@ -95,12 +32,9 @@ class MultiSourceDataset(Dataset):
             logger.info(f'{source}: {len(dataset)} examples')
         self.datasets = datasets
 
-        self.id2example = []
-        self.example2id = {}
-        for source, dataset in sorted(list(self.datasets.items())):
-            for i in range(len(dataset)):
-                self.example2id[(source, i)] = len(self.id2example)
-                self.id2example.append((source, i))
+        self.total_examples = sum(
+            len(dataset) for dataset in self.datasets.values()
+        )
 
     def map(self, *args, **kwargs):
         return MultiSourceDataset({
@@ -159,13 +93,47 @@ class MultiSourceDataset(Dataset):
         return shared_feats
 
     def __len__(self):
-        return len(self.id2example)
+        return self.total_examples
 
-    def __getitem__(self, i):
-        source, index = self.id2example[i]
-        example = self.datasets[source][index]
-        example[BATCH_SOURCE_KEY] = source
-        return example
+
+class MultiSourceDataLoader(object):
+
+    def __init__(self, dataset, loaders, sampling_policy='random'):
+        self.dataset = dataset
+        self.loaders = loaders
+        self.sampling_policy = sampling_policy
+        self.length = sum(len(loader) for loader in self.loaders.values())
+        self.batch_size = None
+        for loader in loaders.values():
+            if self.batch_size is None:
+                self.batch_size = loader.batch_size
+            elif loader.batch_size != self.batch_size:
+                raise ValueError('Loaders have inconsistent batch sizes')
+
+    def __iter__(self):
+        order = [
+            source
+            for source, dataset in self.loaders.items()
+            for _ in range(len(dataset))
+        ]
+        if self.sampling_policy == 'random':
+            random.shuffle(order)
+        elif self.sampling_policy != 'sequential':
+            raise ValueError(
+                f'Unrecognised sampling policy "{self.sampling_policy}". '
+                f'Must be one of "random" or "sequential"'
+            )
+        iterators = {
+            source: iter(dataset)
+            for source, dataset in self.loaders.items()
+        }
+        for source in order:
+            batch = next(iterators[source])
+            batch[BATCH_SOURCE_KEY] = source
+            yield batch
+
+    def __len__(self):
+        return self.length
 
 
 def load_single_dataset(
@@ -315,7 +283,6 @@ def load_source_data(
     return split_components
 
 
-
 def load_multisource_dataset(
     multisource_json,
     training_args,
@@ -344,30 +311,6 @@ def load_multisource_dataset(
     return multisource_splits, sfts
 
 
-class SourceAwareDataCollator:
-
-    def __init__(self, collator):
-        self._collator = collator
-
-    def __call__(self, features):
-        batch_source = None
-        for example in features:
-            example_source = example.pop(BATCH_SOURCE_KEY, None)
-            if example_source is None:
-                raise ValueError('Example did not specify a source')
-            if batch_source is None:
-                batch_source = example_source
-            elif example_source != batch_source:
-                raise ValueError(
-                    f'Batch contained inconsistent sources: '
-                    f'{batch_source} and {example_source}'
-                )
-
-        batch = self._collator(features)
-        batch[BATCH_SOURCE_KEY] = batch_source
-        return batch
-
-
 def MultiSourcePlugin(_Trainer):
 
     class _MultiSourceTrainer(_Trainer):
@@ -377,7 +320,7 @@ def MultiSourcePlugin(_Trainer):
             *args,
             train_dataset=None,
             eval_dataset=None,
-            data_collator=None,
+            #data_collator=None,
             source_sfts=None,
             source_sft_apply_abs=False,
             **kwargs
@@ -393,14 +336,11 @@ def MultiSourcePlugin(_Trainer):
             self._source_sft_apply_abs = source_sft_apply_abs
             self._activated_sft = None
 
-            if self._multisource and data_collator is not None:
-                data_collator = SourceAwareDataCollator(data_collator)
-
             super().__init__(
                 *args,
                 train_dataset=train_dataset,
                 eval_dataset=eval_dataset,
-                data_collator=data_collator,
+                #data_collator=data_collator,
                 **kwargs,
             )
 
@@ -447,42 +387,22 @@ def MultiSourcePlugin(_Trainer):
             self.activate_sft(None)
             return output
 
-        def _remove_unused_columns(self, dataset, description=None):
-            if isinstance(dataset, MultiSourceDataset):
-                sub_datasets = {
-                    s: self._remove_unused_columns(d, description=description)
-                    for s, d in dataset.datasets.items()
-                }
-                return MultiSourceDataset(sub_datasets)
-            elif isinstance(dataset, datasets.Dataset):
-                return super()._remove_unused_columns(
-                    dataset,
-                    description=description,
-                )
-            else:
-                return dataset
-
         def get_train_dataloader(self) -> DataLoader:
             if self.train_dataset is None:
                 raise ValueError("Trainer: training requires a train_dataset.")
 
             train_dataset = self.train_dataset
             if isinstance(train_dataset, MultiSourceDataset):
-                train_dataset = self._remove_unused_columns(train_dataset, description="training")
-                batch_sampler = MultiSourceBatchSampler(
+                loaders = {}
+                for source, dataset in train_dataset.datasets.items():
+                    self.train_dataset = dataset
+                    loaders[source] = super().get_train_dataloader()
+                self.train_dataset = train_dataset
+                return MultiSourceDataLoader(
                     train_dataset,
-                    self.args.train_batch_size,
-                    random=True,
+                    loaders,
+                    sampling_policy='random',
                 )
-
-                return DataLoader(
-                    train_dataset,
-                    batch_sampler=batch_sampler,
-                    collate_fn=self.data_collator,
-                    num_workers=self.args.dataloader_num_workers,
-                    pin_memory=self.args.dataloader_pin_memory,
-                )
-            
             else:
                 return super().get_train_dataloader()
 
@@ -492,39 +412,26 @@ def MultiSourcePlugin(_Trainer):
             eval_dataset = eval_dataset if eval_dataset is not None else self.eval_dataset
 
             if isinstance(eval_dataset, MultiSourceDataset):
-                eval_dataset = self._remove_unused_columns(eval_dataset, description="eval")
-                batch_sampler = MultiSourceBatchSampler(
+                return MultiSourceDataLoader(
                     eval_dataset,
-                    self.args.eval_batch_size,
-                    random=False,
+                    {
+                        source: super(_Trainer, self).get_eval_dataloader(eval_dataset=dataset)
+                        for source, dataset in eval_dataset.datasets.items()
+                    },
+                    sampling_policy='sequential',
                 )
-
-                return DataLoader(
-                    eval_dataset,
-                    batch_sampler=batch_sampler,
-                    collate_fn=self.data_collator,
-                    num_workers=self.args.dataloader_num_workers,
-                    pin_memory=self.args.dataloader_pin_memory,
-                )
-            
             else:
                 return super().get_eval_dataloader(eval_dataset)
 
         def get_test_dataloader(self, test_dataset: Dataset) -> DataLoader:
             if isinstance(test_dataset, MultiSourceDataset):
-                test_dataset = self._remove_unused_columns(test_dataset, description="test")
-                batch_sampler = MultiSourceBatchSampler(
+                return MultiSourceDataLoader(
                     test_dataset,
-                    self.args.eval_batch_size,
-                    random=False,
-                )
-
-                return DataLoader(
-                    test_dataset,
-                    batch_sampler=batch_sampler,
-                    collate_fn=self.data_collator,
-                    num_workers=self.args.dataloader_num_workers,
-                    pin_memory=self.args.dataloader_pin_memory,
+                    {
+                        source: super(_Trainer, self).get_test_dataloader(dataset)
+                        for source, dataset in test_dataset.datasets.items()
+                    },
+                    sampling_policy='sequential',
                 )
             else:
                 return super().get_test_dataloader(test_dataset)

@@ -39,7 +39,6 @@ class SparseFineTuner(Trainer):
             instance). If None, all parameters will be sparsely fine-tuned.
         **kwargs: arguments to pass to Trainer constructor.
     """
-
     def __init__(
         self,
         *args,
@@ -122,6 +121,10 @@ class SparseFineTuner(Trainer):
         """ Calculates the sparse difference vector between the current
         parameter values and the pre-trained values.
 
+        Args:
+            eps: differences smaller than this amount will be treated as zero,
+            i.e. excluded from the SFT.
+
         Returns:
             An SFT containing the differences.
         """
@@ -191,6 +194,7 @@ class SparseFineTuner(Trainer):
             self.calculate_reg_loss = False
 
         if self._masking_enabled:
+            # set gradients for non-trainable parametres to zero.
             for n, p in self.model.named_parameters():
                 if n in self.maskable_params and p.grad is not None:
                     p.grad *= self._mask[n]

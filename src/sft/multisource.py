@@ -32,9 +32,11 @@ class MultiSourceDataset(Dataset):
             logger.info(f'{source}: {len(dataset)} examples')
         self.datasets = datasets
 
-        self.total_examples = sum(
-            len(dataset) for dataset in self.datasets.values()
-        )
+        self.sequential_order = [
+            (source, index)
+            for source, dataset in sorted(self.datasets.items())
+            for index in range(len(dataset))
+        ]
 
     def map(self, *args, **kwargs):
         return MultiSourceDataset({
@@ -92,8 +94,18 @@ class MultiSourceDataset(Dataset):
 
         return shared_feats
 
+    def __getitem__(self, index):
+        source, subindex = self.sequential_order[index]
+        return self.datasets[source][subindex]
+
+    def __iter__(self):
+        # Implement as well as __getitem__ in case sub-datasets are IterableDatasets
+        for source, dataset in sorted(self.datasets.items()):
+            for item in dataset:
+                yield item
+
     def __len__(self):
-        return self.total_examples
+        return len(self.sequential_order)
 
 
 class MultiSourceDataLoader(object):
@@ -113,7 +125,7 @@ class MultiSourceDataLoader(object):
     def __iter__(self):
         order = [
             source
-            for source, dataset in self.loaders.items()
+            for source, dataset in sorted(self.loaders.items())
             for _ in range(len(dataset))
         ]
         if self.sampling_policy == 'random':

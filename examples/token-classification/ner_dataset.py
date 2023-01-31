@@ -63,7 +63,7 @@ For more details see https://arxiv.org/abs/2103.11811
 """
 
 _MASAKHANE_URL = "https://github.com/masakhane-io/masakhane-ner/raw/main/data/"
-_CONLL_URL = "https://github.com/davidsbatista/NER-datasets/raw/master/CONLL2003/"
+_CONLL_URL = "https://raw.githubusercontent.com/davidsbatista/NER-datasets/dcb6c7439a7de43abc2448bad5b1d81a47f26c0d/CONLL2003/"
 
 
 class MasakhanerConfig(datasets.BuilderConfig):

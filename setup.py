@@ -6,6 +6,19 @@ here = pathlib.Path(__file__).parent.resolve()
 # Get the long description from the README file
 long_description = (here / 'README.md').read_text(encoding='utf-8')
 
+install_requires = [
+    'conllu',
+    'datasets>=1.8',
+    'huggingface-hub>=0.0.17',
+    'seqeval',
+]
+try:
+    # Check for pre-existing transformers installations to accomodate
+    # using composable-sft in parallel with adapter-transformers.
+    import transformers
+except ImportError:
+    install_requires.append('transformers>=4.9')
+
 setup(
     name='composable-sft',
     version='0.0.1',
@@ -31,12 +44,6 @@ setup(
     package_dir={'': 'src'},
     packages=find_packages(where='src'),
 
-    install_requires=[
-        'conllu',
-        'datasets>=1.8',
-        'huggingface-hub>=0.0.17',
-        'seqeval',
-        'transformers>=4.9',
-    ],
+    install_requires=install_requires,
     python_requires='>=3.9',
 )

@@ -27,11 +27,11 @@ New utilities have been added for [multi-source training](#multi-source-training
 
 ## Installation
 
-First, install Python 3.9 and PyTorch >= 1.9 (earlier versions may work but haven't been tested), e.g. using conda:
+First, install Python >= 3.9 and PyTorch >= 1.9 (earlier versions may work but haven't been tested), e.g. using conda:
 ```
-conda create -n sft python=3.9
+conda create -n sft python=3.10
 conda activate sft
-conda install pytorch cudatoolkit=11.1 -c pytorch -c conda-forge
+conda install pytorch pytorch-cuda=11.7 -c pytorch -c nvidia
 ```
 
 Then download and install composable-sft:
@@ -41,6 +41,7 @@ cd composable-sft
 pip install -e .
 ```
 
+If you wish to use `composable-sft` in parallel with the [`adapter-transformers`](https://github.com/Adapter-Hub/adapter-transformers) library, then install `adapter-transformers` first, otherwise the installer will automatically install non-adapter `transformers`.
 
 ## Using pre-trained SFTs
 

@@ -6,6 +6,18 @@ This is a library for training and applying sparse fine-tunings with `torch` and
 ### 2023/02/01
 `LotteryTicketSparseFineTuner` can now be applied to Trainer subclasses such as QuestionAnsweringTrainer. See "Training SFTs" for further info.
 
+`MultiSourceDataset` now supports upsampling - a different upsampling factor can be defined for each source language. E.g.
+```
+dataset = MultiSourceDataset(
+    {
+        'en': english_dataset,
+        'swa': swahili_dataset,
+    },
+    upsampling={'swa': 2}
+)
+```
+would create a `MultiSourceDataset` in which each example within `swahili_dataset` is replicated twice.
+
 ### 2022/01/13
 `composable-sft` now supports multi-GPU training with `DistributedDataParallel`. This can be invoked in the same way as for a vanilla `transformers` `Trainer`.
 

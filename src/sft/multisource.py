@@ -26,29 +26,38 @@ BATCH_SOURCE_KEY = '_source'
 
 class MultiSourceDataset(Dataset):
 
-    def __init__(self, datasets: Dict[str, Dataset]):
+    def __init__(self, datasets: Dict[str, Dataset], upsampling={}):
         logger.info('Initialising multi-source dataset with subsets:')
         for source, dataset in sorted(list(datasets.items())):
-            logger.info(f'{source}: {len(dataset)} examples')
+            upsampling_info = f' (x{upsampling[source]} upsampling)' if source in upsampling else ''
+            logger.info(f'{source}: {len(dataset)} examples{upsampling_info}')
         self.datasets = datasets
+        self.upsampling = dict(upsampling)
 
         self.sequential_order = [
             (source, index)
             for source, dataset in sorted(self.datasets.items())
             for index in range(len(dataset))
+            for repetition in range(upsampling.get(source, 1))
         ]
 
     def map(self, *args, **kwargs):
-        return MultiSourceDataset({
-            dataset_name: dataset.map(*args, **kwargs)
-            for dataset_name, dataset in self.datasets.items()
-        })
+        return MultiSourceDataset(
+            {
+                    dataset_name: dataset.map(*args, **kwargs)
+                for dataset_name, dataset in self.datasets.items()
+            },
+            upsampling=self.upsampling
+        )
 
     def filter(self, *args, **kwargs):
-        return MultiSourceDataset({
-            dataset_name: dataset.filter(*args, **kwargs)
-            for dataset_name, dataset in self.datasets.items()
-        })
+        return MultiSourceDataset(
+            {
+                dataset_name: dataset.filter(*args, **kwargs)
+                for dataset_name, dataset in self.datasets.items()
+            },
+            upsampling=self.upsampling
+        )
 
     @property
     def column_names(self):
@@ -302,6 +311,7 @@ def load_multisource_dataset(
 ):
     multisource_splits = {}
     sfts = {}
+    upsampling = {split: {} for split in ['train', 'validation', 'test']}
     for source, source_data in multisource_json.items():
         if 'data' not in source_data:
             raise ValueError(f'Missing "data" field for source "{source}"')
@@ -317,8 +327,17 @@ def load_multisource_dataset(
         if 'sft' in source_data:
             sfts[source] = SFT(source_data['sft'])
 
+        for split_name, split_upsampling in upsampling.items():
+            upsampling_key = f'{split_name}_upsampling'
+            if upsampling_key in source_data:
+                logger.info(f'Encountered {split_name} upsampling for {source}')
+                split_upsampling[source] = int(source_data[upsampling_key])
+
     for split_name, dataset in multisource_splits.items():
-        multisource_splits[split_name] = MultiSourceDataset(dataset)
+        multisource_splits[split_name] = MultiSourceDataset(
+            dataset,
+            upsampling=upsampling[split_name]
+        )
 
     return multisource_splits, sfts
 

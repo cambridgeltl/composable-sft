@@ -11,6 +11,7 @@ from transformers import Trainer, TrainerCallback
 
 from .sft import SFT
 from .sft_args import SftArguments
+from .utils import DataCollatorWithConsistentEvalMasking
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +203,14 @@ def SparseFineTuner(_Trainer):
                         p.grad *= self._mask[n]
 
             return loss
+
+        def evaluate(self, *args, **kwargs):
+            if isinstance(self.data_collator, DataCollatorWithConsistentEvalMasking):
+                self.data_collator.eval()
+            output = super().evaluate(*args, **kwargs)
+            if isinstance(self.data_collator, DataCollatorWithConsistentEvalMasking):
+                self.data_collator.train()
+            return output
 
         def _maybe_log_save_evaluate(self, tr_loss, model, trial, epoch, ignore_keys_for_eval):
             if self.control.should_log:

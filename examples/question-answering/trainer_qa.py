@@ -24,10 +24,8 @@ if is_torch_tpu_available():
     import torch_xla.core.xla_model as xm
     import torch_xla.debug.metrics as met
 
-from sft import LotteryTicketSparseFineTuner
 
-
-class QuestionAnsweringTrainer(LotteryTicketSparseFineTuner):
+class QuestionAnsweringTrainer(Trainer):
     def __init__(self, *args, eval_examples=None, post_process_function=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.eval_examples = eval_examples

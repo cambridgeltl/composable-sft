@@ -256,85 +256,81 @@ class ParsingMetric(Metric):
         self._total_words = 0.0
 
 
-def DependencyParsingTrainer(_Trainer):
-    
-    class _DependencyParsingTrainer(_Trainer):
-        args: UDTrainingArguments
+class DependencyParsingTrainer(Trainer):
+    args: UDTrainingArguments
 
-        def __init__(self, **kwargs):
-            super().__init__(**kwargs)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-        def prediction_loop(
-            self,
-            dataloader: DataLoader,
-            description: str,
-            prediction_loss_only: Optional[bool] = None,
-            ignore_keys=None,
-            metric_key_prefix=None,
-        ) -> EvalLoopOutput:
-            """
-                    Prediction/evaluation loop, shared by `evaluate()` and `predict()`.
+    def prediction_loop(
+        self,
+        dataloader: DataLoader,
+        description: str,
+        prediction_loss_only: Optional[bool] = None,
+        ignore_keys=None,
+        metric_key_prefix=None,
+    ) -> EvalLoopOutput:
+        """
+                Prediction/evaluation loop, shared by `evaluate()` and `predict()`.
 
-                    Works both with or without labels.
-                    """
+                Works both with or without labels.
+                """
 
-            prediction_loss_only = prediction_loss_only if prediction_loss_only is not None else self.args.prediction_loss_only
+        prediction_loss_only = prediction_loss_only if prediction_loss_only is not None else self.args.prediction_loss_only
 
+        model = self.model
+        # multi-gpu eval
+        if self.args.n_gpu > 1:
+            model = torch.nn.DataParallel(model)
+        else:
             model = self.model
-            # multi-gpu eval
-            if self.args.n_gpu > 1:
-                model = torch.nn.DataParallel(model)
-            else:
-                model = self.model
-            # Note: in torch.distributed mode, there's no point in wrapping the model
-            # inside a DistributedDataParallel as we'll be under `no_grad` anyways.
+        # Note: in torch.distributed mode, there's no point in wrapping the model
+        # inside a DistributedDataParallel as we'll be under `no_grad` anyways.
 
-            batch_size = dataloader.batch_size
-            logger.info("***** Running %s *****", description)
-            logger.info("  Num examples = %d", self.num_examples(dataloader))
-            logger.info("  Batch size = %s", str(batch_size)) # may be None
-            logger.info("  Decode mode = %s", self.args.decode_mode)
-            eval_losses: List[float] = []
-            model.eval()
+        batch_size = dataloader.batch_size
+        logger.info("***** Running %s *****", description)
+        logger.info("  Num examples = %d", self.num_examples(dataloader))
+        logger.info("  Batch size = %s", str(batch_size)) # may be None
+        logger.info("  Decode mode = %s", self.args.decode_mode)
+        eval_losses: List[float] = []
+        model.eval()
 
-            metric = ParsingMetric()
+        metric = ParsingMetric()
 
-            for inputs in tqdm(dataloader, desc=description):
+        for inputs in tqdm(dataloader, desc=description):
 
-                #for k, v in inputs.items():
-                #    if isinstance(v, torch.Tensor):
-                #        inputs[k] = v.to(self.args.device)
+            #for k, v in inputs.items():
+            #    if isinstance(v, torch.Tensor):
+            #        inputs[k] = v.to(self.args.device)
 
-                #with torch.no_grad():
-                step_eval_loss, (rel_preds, arc_preds), _ = self.prediction_step(model, inputs, False)
+            #with torch.no_grad():
+            step_eval_loss, (rel_preds, arc_preds), _ = self.prediction_step(model, inputs, False)
 
-                eval_losses += [step_eval_loss.mean().item()]
+            eval_losses += [step_eval_loss.mean().item()]
 
-                mask = inputs["labels_arcs"].ne(self.model.config.pad_token_id)
-                predictions_arcs = torch.argmax(arc_preds, dim=-1)[mask]
+            mask = inputs["labels_arcs"].ne(self.model.config.pad_token_id)
+            predictions_arcs = torch.argmax(arc_preds, dim=-1)[mask]
 
-                labels_arcs = inputs["labels_arcs"][mask]
+            labels_arcs = inputs["labels_arcs"][mask]
 
-                predictions_rels, labels_rels = rel_preds[mask], inputs["labels_rels"][mask]
-                predictions_rels = predictions_rels[torch.arange(len(labels_arcs)), labels_arcs]
-                predictions_rels = torch.argmax(predictions_rels, dim=-1)
+            predictions_rels, labels_rels = rel_preds[mask], inputs["labels_rels"][mask]
+            predictions_rels = predictions_rels[torch.arange(len(labels_arcs)), labels_arcs]
+            predictions_rels = torch.argmax(predictions_rels, dim=-1)
 
-                metric.add(labels_arcs, labels_rels, predictions_arcs, predictions_rels)
+            metric.add(labels_arcs, labels_rels, predictions_arcs, predictions_rels)
 
-            results = metric.get_metric()
-            results = {
-                k if k.startswith(metric_key_prefix) else f'{metric_key_prefix}_{k}': v
-                for k, v in results.items()
-            }
-            results[f"{metric_key_prefix}_loss"] = np.mean(eval_losses)
+        results = metric.get_metric()
+        results = {
+            k if k.startswith(metric_key_prefix) else f'{metric_key_prefix}_{k}': v
+            for k, v in results.items()
+        }
+        results[f"{metric_key_prefix}_loss"] = np.mean(eval_losses)
 
-            # Add predictions_rels to output, even though we are only interested in the metrics
-            return EvalLoopOutput(
-                predictions=predictions_rels,
-                label_ids=None,
-                metrics=results,
-                num_samples=self.num_examples(dataloader),
-            )
-
-    return _DependencyParsingTrainer
+        # Add predictions_rels to output, even though we are only interested in the metrics
+        return EvalLoopOutput(
+            predictions=predictions_rels,
+            label_ids=None,
+            metrics=results,
+            num_samples=self.num_examples(dataloader),
+        )
 

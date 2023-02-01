@@ -34,6 +34,7 @@ from transformers import (
     EarlyStoppingCallback,
     EvalPrediction,
     HfArgumentParser,
+    Trainer,
     TrainingArguments,
     set_seed,
 )
@@ -326,8 +327,8 @@ def main():
 
     training_args.use_legacy_prediction_loop = True
     # Initialize our Trainer
-    trainer_cls = LotteryTicketSparseFineTuner
-    trainer_cls = DependencyParsingTrainer(trainer_cls)
+    trainer_cls = DependencyParsingTrainer
+    trainer_cls = LotteryTicketSparseFineTuner(trainer_cls)
     # Optional if using single-source training
     trainer_cls = MultiSourcePlugin(trainer_cls)
 

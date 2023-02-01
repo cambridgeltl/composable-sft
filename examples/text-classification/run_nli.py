@@ -78,6 +78,18 @@ class DataTrainingArguments:
     dataset_config_name: str = field(
         default=None, metadata={"help": "Evaluation language. Also train language if `train_language` is set to None."}
     )
+    train_split: Optional[str] = field(
+        default=None,
+        metadata={"help": "Name of the train split."},
+    )
+    validation_split: Optional[str] = field(
+        default=None,
+        metadata={"help": "Name of the validation split."},
+    )
+    test_split: Optional[str] = field(
+        default=None,
+        metadata={"help": "Name of the test split."},
+    )
     train_file: Optional[str] = field(
         default=None,
         metadata={"help": "An optional input train data file (tsv file)."},
@@ -247,6 +259,13 @@ def main():
             dataset_descriptor['load_kwargs'] = {
                 'delimiter': '\t',
             }
+
+        if data_args.train_split is not None:
+            dataset_descriptor['train_split'] = data_args.train_split
+        if data_args.validation_split is not None:
+            dataset_descriptor['validation_split'] = data_args.validation_split
+        if data_args.test_split is not None:
+            dataset_descriptor['test_split'] = data_args.test_split
 
         if not training_args.do_train:
             dataset_descriptor['train_split'] = None

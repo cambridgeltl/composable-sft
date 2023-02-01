@@ -3,6 +3,9 @@ This is a library for training and applying sparse fine-tunings with `torch` and
 
 ## News
 
+### 2023/02/01
+`LotteryTicketSparseFineTuner` can now be applied to Trainer subclasses such as QuestionAnsweringTrainer. See "Training SFTs" for further info.
+
 ### 2022/01/13
 `composable-sft` now supports multi-GPU training with `DistributedDataParallel`. This can be invoked in the same way as for a vanilla `transformers` `Trainer`.
 
@@ -57,7 +60,11 @@ For a full list of pre-trained SFTs available, see [MODELS](MODELS.md)
 
 ## Training SFTs
 
-`LotteryTicketSparseFineTuner` is a sub-class of the `transformers Trainer` class which performs Lottery Ticket Sparse Fine-Tuning. Its constructor takes the following arguments in addition to those of `Trainer`:
+`LotteryTicketSparseFineTuner` is a function which can be used to modify the `transformers Trainer` class and its subclasses to perform Lottery Ticket Sparse Fine-Tuning, e.g.
+```
+trainer_cls = LotteryTicketSparseFineTuner(QuestionAnsweringTrainer)
+```
+The constructor of the resulting `trainer_cls` class (which is itself a `Trainer`/`QuestionAnsweringTrainer`) subclass) takes the following arguments in addition to those of `Trainer`:
 * `sft_args`: an `SftArguments` object which holds hyperparameters relating to SFT training (c.f. `transformers TrainingArguments`).
 * `maskable_params`: a list of model parameter tensors which are eligible for sparse fine-tuning. Parameters of the classification head should be excluded from this list because these should typically be fully fine-tuned. E.g.
 ```
@@ -97,8 +104,9 @@ eval_dataset = MultiSourceDataset({
 ```
 where `english_dataset` and `japanese_dataset` are `torch.utils.data.Dataset`s.
 
-`MultiSourcePlugin` can be applied to a `transformers` `Trainer` (or subclass thereof, such as `LotteryTicketSparseFineTuner`) to allow it to be used in conjunction with `MultiSourceDataset`s:
+`MultiSourcePlugin` can be applied to a `transformers` `Trainer` (or subclass thereof) to allow it to be used in conjunction with `MultiSourceDataset`s:
 ```
+from transformers import Trainer
 from sft import SFT, LotteryTicketSparseFineTuner, MultiSourcePlugin
 
 english_sft = SFT('cambridgeltl/mbert-lang-sft-en-small')
@@ -108,7 +116,8 @@ source_sfts = {
     'ja': japanese_sft,
 }
 
-trainer_cls = LotteryTicketSparseFineTuner
+trainer_cls = Trainer
+trainer_cls = LotteryTicketSparseFineTuner(trainer_cls)
 trainer_cls = MultiSourcePlugin(trainer_cls)
 trainer = trainer_cls(
     ..., # standard LotteryTicketSparseFineTuner parameters

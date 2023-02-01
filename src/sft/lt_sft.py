@@ -36,11 +36,11 @@ def LotteryTicketSparseFineTuner(_Trainer):
                 ):
                     if n in self.maskable_params:
                         delta = p - self._original_params[n].to(p.device)
-                        delta = delta.view(-1).tolist()
-                        mask = self._mask[n].view(-1).tolist()
-                        for d, m in zip(delta, mask):
-                            if not m:
-                                diffs.append(abs(d))
+                        delta = delta.view(-1)
+                        valid_indices = (~self._mask[n]).view(-1)
+                        valid_deltas = delta[valid_indices]
+                        abs_deltas = torch.abs(valid_deltas)
+                        diffs.extend(abs_deltas.tolist())
                 
                 if k > len(diffs):
                     raise ValueError(

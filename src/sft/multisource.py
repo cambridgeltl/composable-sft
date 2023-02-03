@@ -110,11 +110,18 @@ class MultiSourceDataset(Dataset):
     def __iter__(self):
         # Implement as well as __getitem__ in case sub-datasets are IterableDatasets
         for source, dataset in sorted(self.datasets.items()):
-            for item in dataset:
-                yield item
+            for repetition in range(self.upsampling.get(source, 1)):
+                for item in dataset:
+                    yield item
 
     def __len__(self):
         return len(self.sequential_order)
+
+
+def _upsampled_iter(loader, upsampling_factor):
+    for i in range(upsampling_factor):
+        for batch in iter(loader):
+            yield batch
 
 
 class MultiSourceDataLoader(object):
@@ -123,7 +130,10 @@ class MultiSourceDataLoader(object):
         self.dataset = dataset
         self.loaders = loaders
         self.sampling_policy = sampling_policy
-        self.length = sum(len(loader) for loader in self.loaders.values())
+        self.length = sum(
+            len(loader) * dataset.upsampling.get(source, 1)
+            for source, loader in self.loaders.items()
+        )
         self.batch_size = None
         for loader in loaders.values():
             if self.batch_size is None:
@@ -135,6 +145,7 @@ class MultiSourceDataLoader(object):
         order = [
             source
             for source, dataset in sorted(self.loaders.items())
+            for repetition in range(self.dataset.upsampling.get(source, 1))
             for _ in range(len(dataset))
         ]
         if self.sampling_policy == 'random':
@@ -145,8 +156,8 @@ class MultiSourceDataLoader(object):
                 f'Must be one of "random" or "sequential"'
             )
         iterators = {
-            source: iter(dataset)
-            for source, dataset in self.loaders.items()
+            source: _upsampled_iter(loader, self.dataset.upsampling.get(source, 1))
+            for source, loader in self.loaders.items()
         }
         for source in order:
             batch = next(iterators[source])

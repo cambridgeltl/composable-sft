@@ -117,6 +117,19 @@ class MultiSourceDataset(Dataset):
     def __len__(self):
         return len(self.sequential_order)
 
+    def __str__(self):
+        lines = ['MultiSourceDataset({']
+        for i, (source, dataset) in enumerate(sorted(list(self.datasets.items()))):
+            source_repr = f'{source}: {dataset}'
+            if i != len(self.datasets) - 1:
+                source_repr += ','
+            lines.extend([
+                '\t' + line
+                for line in source_repr.split('\n')
+            ])
+        lines.append('})')
+        return '\n'.join(lines)
+
 
 def _upsampled_iter(loader, upsampling_factor):
     for i in range(upsampling_factor):

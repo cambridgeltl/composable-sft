@@ -470,7 +470,7 @@ def MultiSourcePlugin(_Trainer):
                 return MultiSourceDataLoader(
                     eval_dataset,
                     {
-                        source: super(_Trainer, self).get_eval_dataloader(eval_dataset=dataset)
+                        source: super(_MultiSourceTrainer, self).get_eval_dataloader(eval_dataset=dataset)
                         for source, dataset in eval_dataset.datasets.items()
                     },
                     sampling_policy='sequential',
@@ -483,7 +483,7 @@ def MultiSourcePlugin(_Trainer):
                 return MultiSourceDataLoader(
                     test_dataset,
                     {
-                        source: super(_Trainer, self).get_test_dataloader(dataset)
+                        source: super(_MultiSourceTrainer, self).get_test_dataloader(dataset)
                         for source, dataset in test_dataset.datasets.items()
                     },
                     sampling_policy='sequential',

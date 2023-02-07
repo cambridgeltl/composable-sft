@@ -221,8 +221,11 @@ def load_single_dataset(
         if 'file_type' in dataset_json:
             file_type = dataset_json['file_type']
         else:
-            file_name = list(data_files.keys())[0]
+            file_name = list(data_files.values())[0]
             file_type = file_name.split('.')[-1]
+        if file_type.lower() == 'tsv':
+            file_type = 'csv'
+            load_kwargs['delimiter'] = '\t'
         raw_datasets = datasets.load_dataset(
             file_type,
             data_files=data_files,

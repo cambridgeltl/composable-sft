@@ -34,6 +34,7 @@ def LotteryTicketSparseFineTuner(_Trainer):
                     desc='Finding masking threshold',
                     disable=self.args.local_rank > 0 or self.args.disable_tqdm,
                 ):
+                    p.grad = None # save some memory to use for the diff calculation
                     if n in self.maskable_params:
                         delta = p - self._original_params[n].to(p.device)
                         delta = delta.view(-1)

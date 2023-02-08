@@ -19,7 +19,7 @@ import os
 import random
 import sys
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
 
 import datasets
 import numpy as np
@@ -78,6 +78,13 @@ class DataTrainingArguments:
     dataset_config_name: str = field(
         default=None, metadata={"help": "Evaluation language. Also train language if `train_language` is set to None."}
     )
+    input_columns: Optional[List[str]] = field(
+        default_factory=lambda: ['text'],
+        metadata={
+            "help": 'Columns which make up model input, e.g. "premise hypothesis" for NLI, '
+                    'or "text" for sentiment analysis.'
+        },
+    )
     train_split: Optional[str] = field(
         default=None,
         metadata={"help": "Name of the train split."},
@@ -104,11 +111,14 @@ class DataTrainingArguments:
     )
     label_file: Optional[str] = field(
         default=None,
-        metadata={"help": "File containing label names."},
+        metadata={"help": "JSON file mapping label names encountered in the dataset to the desired IDs."},
     )
 
     eval_split: Optional[str] = field(
         default='validation', metadata={"help": "The split to evaluate on."}
+    )
+    eval_metric: Optional[str] = field(
+        default='accuracy', metadata={"help": 'The evaluation metric (e.g. "accuracy" or "f1").'}
     )
 
     max_seq_length: Optional[int] = field(
@@ -159,9 +169,6 @@ class ModelArguments:
 
     model_name_or_path: str = field(
         default=None, metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
-    )
-    head_path: Optional[str] = field(
-        default=None, metadata={"help": "Path to model head."}
     )
     config_name: Optional[str] = field(
         default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
@@ -255,11 +262,6 @@ def main():
             if data_args.test_file:
                 dataset_descriptor['test_file'] = data_args.test_file
 
-            dataset_descriptor['file_type'] = 'csv'
-            dataset_descriptor['load_kwargs'] = {
-                'delimiter': '\t',
-            }
-
         if data_args.train_split is not None:
             dataset_descriptor['train_split'] = data_args.train_split
         if data_args.validation_split is not None:
@@ -290,30 +292,36 @@ def main():
             overwrite_cache=data_args.overwrite_cache,
         )
 
-    def get_labels(dataset):
-        if isinstance(dataset.features['label'], ClassLabel):
-            return dataset.features['label'].names
+    def get_label_mapping(dataset):
+        if data_args.label_file is not None:
+            with open(data_args.label_file, 'r') as f:
+                label2id = json.load(f)
+            label_ids = sorted(list(label2id.values()))
+            if label_ids != list(range(len(label_ids))):
+                raise RuntimeError(
+                    'Labels must be mapped to a contiguous range of integers starting at 0, '
+                    'the provided ID range {label_ids} is not acceptable.'
+                )
+            return label2id
+        
+        elif isinstance(dataset.features['label'], ClassLabel):
+            return {str(i): i for i in range(len(dataset.features['label'].names))}
 
-        if data_args.label_file is None:
-            raise ValueError('--label_file must be provided if dataset is not a datasets.Dataset')
-
-        label_list = []
-        with open(data_args.label_file, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    label_list.append(line)
-        return label_list
+        else:
+            label_list = sorted(list(set(dataset['label'])))
+            return {str(n): i for i, n in enumerate(label_list)}
 
     if training_args.do_train:
         train_dataset = raw_datasets['train']
-        label_list = get_labels(train_dataset)
+        logger.info(f'Train dataset:\n{train_dataset}')
+        label2id = get_label_mapping(train_dataset)
     if training_args.do_eval:
         eval_dataset = raw_datasets[data_args.eval_split]
-        label_list = get_labels(eval_dataset)
+        logger.info(f'Eval dataset:\n{eval_dataset}')
+        label2id = get_label_mapping(eval_dataset)
 
-    num_labels = len(label_list)
-    label2id = {l: i for i, l in enumerate(label_list)}
+    num_labels = len(label2id)
+    logger.info(f'Label map: {label2id}')
 
     # Load pretrained model and tokenizer
     # In distributed training, the .from_pretrained methods guarantee that only one local process can concurrently
@@ -370,15 +378,15 @@ def main():
 
     def preprocess_function(examples):
         # Tokenize the texts
+        input_columns = [examples[column] for column in data_args.input_columns]
         tokenized_examples = tokenizer(
-            examples["premise"],
-            examples["hypothesis"],
+            *input_columns,
             padding=padding,
             max_length=data_args.max_seq_length,
             truncation=True,
         )
         tokenized_examples['label'] = [
-            label2id.get(label, label)
+            label2id[str(label)]
             for label in examples['label']
         ]
         return tokenized_examples
@@ -405,14 +413,17 @@ def main():
             )
 
     # Get the metric function
-    metric = load_metric("xnli")
+    metric = load_metric(data_args.eval_metric)
+    metric_kwargs = {}
+    if data_args.eval_metric == 'f1':
+        metric_kwargs['average'] = 'macro'
 
     # You can define your custom compute_metrics function. It takes an `EvalPrediction` object (a namedtuple with a
     # predictions and label_ids field) and has to return a dictionary string to float.
     def compute_metrics(p: EvalPrediction):
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
         preds = np.argmax(preds, axis=1)
-        return metric.compute(predictions=preds, references=p.label_ids)
+        return metric.compute(predictions=preds, references=p.label_ids, **metric_kwargs)
 
     # Data collator will default to DataCollatorWithPadding, so we change it if we already did the padding.
     if data_args.pad_to_max_length:
@@ -482,29 +493,6 @@ def main():
 
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
-
-    # Prediction
-    if training_args.do_predict:
-        logger.info("*** Predict ***")
-        predictions, labels, metrics = trainer.predict(predict_dataset, metric_key_prefix="predict")
-
-        max_predict_samples = (
-            data_args.max_predict_samples if data_args.max_predict_samples is not None else len(predict_dataset)
-        )
-        metrics["predict_samples"] = min(max_predict_samples, len(predict_dataset))
-
-        trainer.log_metrics("predict", metrics)
-        trainer.save_metrics("predict", metrics)
-
-        predictions = np.argmax(predictions, axis=1)
-        output_predict_file = os.path.join(training_args.output_dir, "predictions.txt")
-        if trainer.is_world_process_zero():
-            with open(output_predict_file, "w") as writer:
-                writer.write("index\tprediction\n")
-                for index, item in enumerate(predictions):
-                    item = label_list[item]
-                    writer.write(f"{index}\t{item}\n")
-
 
 if __name__ == "__main__":
     main()

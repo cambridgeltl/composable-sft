@@ -1,0 +1,83 @@
+{
+    "id": {
+        "sft": "cambridgeltl/xlmr-lang-sft-id-small",
+        "data": {
+            "train_file": "data/smsa-trimmed/train.tsv",
+            "validation_file": "data/smsa-trimmed/validation.tsv"
+        }
+    },
+    "ace": {
+        "sft": "cambridgeltl/xlmr-lang-sft-ace-small",
+        "data": {
+            "name": "indonlp/NusaX-senti",
+            "config_name": "ace"
+        }
+    },
+    "ban": {
+        "sft": "cambridgeltl/xlmr-lang-sft-ban-small",
+        "data": {
+            "name": "indonlp/NusaX-senti",
+            "config_name": "ban"
+        }
+    },
+    "bbc": {
+        "data": {
+            "name": "indonlp/NusaX-senti",
+            "config_name": "bbc"
+        }
+    },
+    "bjn": {
+        "sft": "cambridgeltl/xlmr-lang-sft-bjn-small",
+        "data": {
+            "name": "indonlp/NusaX-senti",
+            "config_name": "bjn"
+        }
+    },
+    "bug": {
+        "data": {
+            "name": "indonlp/NusaX-senti",
+            "config_name": "bug"
+        }
+    },
+    "eng": {
+        "sft": "cambridgeltl/xlmr-lang-sft-en-small",
+        "data": {
+            "name": "indonlp/NusaX-senti",
+            "config_name": "eng"
+        }
+    },
+    "jav": {
+        "sft": "cambridgeltl/xlmr-lang-sft-jav-small",
+        "data": {
+            "name": "indonlp/NusaX-senti",
+            "config_name": "jav"
+        }
+    },
+    "mad": {
+        "sft": "cambridgeltl/xlmr-lang-sft-mad-small",
+        "data": {
+            "name": "indonlp/NusaX-senti",
+            "config_name": "mad"
+        }
+    },
+    "min": {
+        "sft": "cambridgeltl/xlmr-lang-sft-min-small",
+        "data": {
+            "name": "indonlp/NusaX-senti",
+            "config_name": "min"
+        }
+    },
+    "nij": {
+        "data": {
+            "name": "indonlp/NusaX-senti",
+            "config_name": "nij"
+        }
+    },
+    "sun": {
+        "sft": "cambridgeltl/xlmr-lang-sft-sun-small",
+        "data": {
+            "name": "indonlp/NusaX-senti",
+            "config_name": "sun"
+        }
+    }
+}

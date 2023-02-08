@@ -1,0 +1,5 @@
+{
+    "entailment": 0,
+    "neutral": 1,
+    "contradiction": 2
+}

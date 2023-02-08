@@ -27,10 +27,6 @@ BATCH_SOURCE_KEY = '_source'
 class MultiSourceDataset(Dataset):
 
     def __init__(self, datasets: Dict[str, Dataset], upsampling={}):
-        logger.info('Initialising multi-source dataset with subsets:')
-        for source, dataset in sorted(list(datasets.items())):
-            upsampling_info = f' (x{upsampling[source]} upsampling)' if source in upsampling else ''
-            logger.info(f'{source}: {len(dataset)} examples{upsampling_info}')
         self.datasets = datasets
         self.upsampling = dict(upsampling)
 
@@ -120,11 +116,16 @@ class MultiSourceDataset(Dataset):
     def __str__(self):
         lines = ['MultiSourceDataset({']
         for i, (source, dataset) in enumerate(sorted(list(self.datasets.items()))):
-            source_repr = f'{source}: {dataset}'
+            source_upsampling = self.upsampling.get(source, 1)
+            if source_upsampling == 1:
+                upsampling_str = ''
+            else:
+                upsampling_str = f'({source_upsampling}x) '
+            source_repr = f'{upsampling_str}{source}: {dataset}'
             if i != len(self.datasets) - 1:
                 source_repr += ','
             lines.extend([
-                '\t' + line
+                4*' ' + line
                 for line in source_repr.split('\n')
             ])
         lines.append('})')

@@ -3,6 +3,9 @@ This is a library for training and applying sparse fine-tunings with `torch` and
 
 ## News
 
+### 2023/02/08
+Released [training and evaluation scripts](examples/text-classification) for the [NusaX sentiment classification task for Indonesian languages](https://arxiv.org/abs/2205.15960) + pre-trained language and task SFTs - see [MODELS](MODELS.md) for details of the test results, which in general exceed the baselines in the NusaX paper (though note that the training data and regime are different in our setup). Note that language SFTs for Buginese, Ngaju and Toba Batak are not yet available due to lack of suitable Wikipedia corpora.
+
 ### 2023/02/01
 `LotteryTicketSparseFineTuner` can now be applied to Trainer subclasses such as QuestionAnsweringTrainer. See "Training SFTs" for further info.
 

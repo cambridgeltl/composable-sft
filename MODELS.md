@@ -11,7 +11,7 @@ The following single-source (i.e. English, except for nusax_senti) task SFTs are
 
 * `cambridgeltl/mbert-task-sft-pos`: Universal Dependencies part-of-speech tagging.
 * `cambridgeltl/mbert-task-sft-dp`: Universal Dependency parsing.
-* `cambridgeltl/mbert-task-sft-masakhaner`: Named Entity Recognition on the restricted tagset `O`, `(B/I)-PER`, `(B/I)-ORG`, `(B/I)-LOC`.
+* `cambridgeltl/mbert-task-sft-masakhaner` and `cambridgeltl/xlmr-task-sft-masakhaner`: Named Entity Recognition on the restricted tagset `O`, `(B/I)-PER`, `(B/I)-ORG`, `(B/I)-LOC`.
 * `cambridgeltl/xlmr-task-sft-nli`: Natural Language Inference.
 * `cambridgeltl/xlmr-task-sft-nusax_senti`: Sentiment Analysis, trained on the SMSA Indonesian SA dataset, which has three labels, 0 = negative, 1 = neutral, 2 = positive.
 
@@ -41,6 +41,7 @@ Identifiers for language SFTs are of the form `cambridgeltl/{base_model}-lang-sf
 | Language | Code | bert-base-multilingual-cased (mbert) | xlm-roberta-base (xlmr) |
 |----------|------|--------------------------------------|--------------------------|
 | Acehnese | ace | &cross; | &check; |
+| Amharic | amh | &cross; | &check; |
 | Arabic | ar | &check; | &check; |
 | Ashaninka | cni | &cross; | &check; |
 | Balinese | ban | &cross; | &check; |
@@ -62,23 +63,24 @@ Identifiers for language SFTs are of the form `cambridgeltl/{base_model}-lang-sf
 | German | de | &check; | &check; |
 | Greek | el | &check; | &check; |
 | Guarani | gn | &cross; | &check; |
-| Hausa | hau | &check; | &cross; |
+| Hausa | hau | &check; | &check; |
 | Hindi | hi | &check; | &check; |
-| Igbo | ibo | &check; | &cross; |
+| Igbo | ibo | &check; | &check; |
 | Indonesian | id | &check; | &check; |
 | Japanese | ja | &check; | &cross; |
 | Javanese | jav | &cross; | &check; |
+| Kinyarwanda | kin | &check; | &check; |
 | Komi Zyrian | kpv | &check; | &cross; |
 | Korean | ko | &check; | &check; |
 | Livvi | olo | &check; | &cross; |
-| Luganda | lug | &check; | &cross; |
-| Luo | luo | &check; | &cross; |
+| Luganda | lug | &check; | &check; |
+| Luo | luo | &check; | &check; |
 | Madurese | mad | &cross; | &check; |
 | Maltese | mt | &check; | &cross; |
 | Manx | gv | &check; | &cross; |
 | Minangkabau | min | &cross; | &check; |
 | Nahuatl | nah | &cross; | &check; |
-| Nigerian-Pidgin | pcm | &check; | &cross; |
+| Nigerian-Pidgin | pcm | &check; | &check; |
 | Otomi | oto | &cross; | &check; |
 | Persian | fa | &check; | &cross; |
 | Portuguese | pt | &check; | &cross; |
@@ -90,7 +92,7 @@ Identifiers for language SFTs are of the form `cambridgeltl/{base_model}-lang-sf
 | Shipibo-Konibo | shp | &cross; | &check; |
 | Spanish | es | &check; | &check; |
 | Sundanese | sun | &cross; | &check; |
-| Swahili | swa | &check; | &cross; |
+| Swahili | swa | &check; | &check; |
 | Tamil | ta | &check; | &cross; |
 | Thai | th | &check; | &check; |
 | Turkish | tr | &check; | &check; |
@@ -99,5 +101,5 @@ Identifiers for language SFTs are of the form `cambridgeltl/{base_model}-lang-sf
 | Uyghur | ug | &check; | &cross; |
 | Vietnamese | vi | &check; | &check; |
 | Wixarika | hch | &cross; | &check; |
-| Wolof | wol | &check; | &cross; |
-| Yoruba | yor | &check; | &cross; |
+| Wolof | wol | &check; | &check; |
+| Yoruba | yor | &check; | &check; |

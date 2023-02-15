@@ -296,11 +296,11 @@ def main():
         if data_args.label_file is not None:
             with open(data_args.label_file, 'r') as f:
                 label2id = json.load(f)
-            label_ids = sorted(list(label2id.values()))
+            label_ids = sorted(list(set(label2id.values())))
             if label_ids != list(range(len(label_ids))):
                 raise RuntimeError(
-                    'Labels must be mapped to a contiguous range of integers starting at 0, '
-                    'the provided ID range {label_ids} is not acceptable.'
+                    f'Labels must be mapped to a contiguous range of integers starting at 0, '
+                    f'the provided ID range {label_ids} is not acceptable.'
                 )
             return label2id
         

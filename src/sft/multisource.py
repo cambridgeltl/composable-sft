@@ -201,10 +201,21 @@ def load_single_dataset(
     }
 
     load_kwargs = dataset_json.get('load_kwargs', {})
+
+    data_files = {}
+    if 'train_file' in dataset_json:
+        data_files['train'] = dataset_json['train_file']
+    if 'validation_file' in dataset_json:
+        data_files['validation'] = dataset_json['validation_file']
+    if 'test_file' in dataset_json:
+        data_files['test'] = dataset_json['test_file']
+    
     if 'name' in dataset_json:
         kwargs = {}
         if 'config_name' in dataset_json:
             load_kwargs['name'] = dataset_json['config_name']
+        if data_files:
+            load_kwargs['data_files'] = data_files
 
         raw_datasets = datasets.load_dataset(
             dataset_json['name'],
@@ -212,13 +223,6 @@ def load_single_dataset(
             **load_kwargs,
         )
     else:
-        data_files = {}
-        if 'train_file' in dataset_json:
-            data_files['train'] = dataset_json['train_file']
-        if 'validation_file' in dataset_json:
-            data_files['validation'] = dataset_json['validation_file']
-        if 'test_file' in dataset_json:
-            data_files['test'] = dataset_json['test_file']
         if 'file_type' in dataset_json:
             file_type = dataset_json['file_type']
         else:

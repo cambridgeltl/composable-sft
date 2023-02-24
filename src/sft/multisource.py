@@ -277,6 +277,9 @@ def load_single_dataset(
             dataset = dataset.select(range(max_samples))
 
         if preprocessor is not None:
+            active_preprocessor = preprocessor
+            if isinstance(preprocessor, dict):
+                active_preprocessor = preprocessor[key]
             if remove_original_columns:
                 remove_columns = dataset.column_names
             else:
@@ -288,7 +291,7 @@ def load_single_dataset(
 
             with training_args.main_process_first(desc='dataset map pre-processing'):
                 dataset = dataset.map(
-                    preprocessor,
+                    active_preprocessor,
                     batched=True,
                     num_proc=preprocessing_num_workers,
                     remove_columns=remove_columns,

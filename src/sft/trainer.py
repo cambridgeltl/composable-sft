@@ -192,7 +192,13 @@ def SparseFineTuner(_Trainer):
                             torch.sum(torch.abs(p - self._original_params[n]))
                         )
                 reg_loss = l1_reg * torch.sum(torch.stack(l1_dists)) / self._num_params
-                reg_loss.backward()
+                if self.use_apex:
+                    with amp.scale_loss(reg_loss, self.optimizer) as scaled_loss:
+                        scaled_loss.backward()
+                elif hasattr(self, 'accelerator'):
+                    self.accelerator.backward(reg_loss)
+                else:
+                    reg_loss.backward()
                 self._reg_loss += float(reg_loss)
                 self.calculate_reg_loss = False
 

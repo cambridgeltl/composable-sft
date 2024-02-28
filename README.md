@@ -67,7 +67,7 @@ language_sft = SFT('cambridgeltl/mbert-lang-sft-bxr-small') # SFT for Buryat
 task_sft = SFT('cambridgeltl/mbert-task-sft-pos') # SFT for POS tagging
 
 # Apply SFTs to pre-trained mBERT TokenClassification model
-language_sft.apply(model)
+language_sft.apply(model, with_abs=False)
 task_sft.apply(model)
 ```
 

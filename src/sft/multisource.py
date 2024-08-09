@@ -55,6 +55,15 @@ class MultiSourceDataset(Dataset):
             upsampling=self.upsampling
         )
 
+    def remove_columns(self, *args, **kwargs):
+        return MultiSourceDataset(
+            {
+                dataset_name: dataset.remove_columns(*args, **kwargs)
+                for dataset_name, dataset in self.datasets.items()
+            },
+            upsampling=self.upsampling
+        )
+
     @property
     def column_names(self):
         names = None

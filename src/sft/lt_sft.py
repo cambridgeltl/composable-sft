@@ -1,5 +1,6 @@
 import logging
 import os
+import gc
 
 import numpy as np
 import torch
@@ -27,31 +28,90 @@ def LotteryTicketSparseFineTuner(_Trainer):
                 self.n_tunable_params = self.sft_args.ft_params_num
 
         def unfreeze_k_most_changed_params(self, k):
+            print(f"{k} params will be unfrozen")
+
             with torch.no_grad():
                 diffs = []
                 for n, p in tqdm(
-                    list(self.model.named_parameters()),
-                    desc='Finding masking threshold',
-                    disable=self.args.local_rank > 0 or self.args.disable_tqdm,
+                        list(self.model.named_parameters()),
+                        desc='Finding masking threshold',
+                        disable=self.args.local_rank > 0 or self.args.disable_tqdm,
                 ):
-                    p.grad = None # save some memory to use for the diff calculation
+                    p.grad = None  # save some memory to use for the diff calculation
                     if n in self.maskable_params:
                         delta = p - self._original_params[n].to(p.device)
                         delta = delta.view(-1)
+                        self._mask[n] = self._mask[n].to(p.device)
                         valid_indices = (~self._mask[n]).view(-1)
                         valid_deltas = delta[valid_indices]
                         abs_deltas = torch.abs(valid_deltas)
-                        diffs.extend(abs_deltas.tolist())
-                
-                if k > len(diffs):
-                    raise ValueError(
-                        'Was requested to unfreeze {k} params, but only '
-                        '{len(diffs)} are frozen.'
-                    )
-                diffs = np.partition(diffs, len(diffs) - k)
-                thresh = diffs[len(diffs) - k]
-                logger.info(f'Masking threshold = {thresh}')
-                
+                        # Do not convert tensor to numpy or list.
+                        # The tensors are already allocated in GPU and conversion increases RAM usage.
+                        # We can take top-K most changed numbers via tensor calculation.
+                        diffs.append(abs_deltas) 
+
+                # Concatenating all the tensors to one device simultaneously requires numerous memories and operations.
+                # Instead inspired by map-reduce, continuously looping the diffs: the list (size of N) of tensors,
+                # We concatenate the tensors, size of L, into slightly larger than `k` and reduce the size of the list, `diffs`, to less than N.
+                # Continue this process until the list size, `diff` becomes 1.
+                print("reducing diffs: ", end="")
+                while sum([len(diff) for diff in diffs]) > k:
+                    print(".", end="")
+                    new_diffs = []
+                    tmp_diffs = []
+
+                    # Concatenate L tensors to one tensor, that the single tensor has a size slightly larger than `K`.
+                    # Then the concatenated tensor will be truncated by `torch.topk` operation. 
+                    for diff in diffs:
+                        if sum([d.shape[0] for d in tmp_diffs]) > k:
+                            lowest_rank = min([
+                                diff.device.index for diff in tmp_diffs
+                            ])
+                            tmp_diffs = [
+                                diff.to(lowest_rank) for diff in tmp_diffs
+                            ]
+
+                            tmp_diffs_topk = torch.topk(
+                                torch.cat(tmp_diffs),
+                                k,
+                                largest=True,
+                            )
+                            new_diffs.append(tmp_diffs_topk.values)
+                            tmp_diffs = []
+
+                        tmp_diffs.append(diff)
+
+                    # If there is a remaining process for `tmp_diffs`, it is processed under this if block.
+                    if len(tmp_diffs) > 0:
+                        if sum([d.shape[0] for d in tmp_diffs]) > k:
+                            lowest_rank = min([
+                                diff.device.index for diff in tmp_diffs
+                            ])
+                            tmp_diffs = [
+                                diff.to(lowest_rank) for diff in tmp_diffs
+                            ]
+                            tmp_diffs_topk = torch.topk(
+                                torch.cat(tmp_diffs),
+                                k,
+                                largest=True,
+                            )
+                        else:
+                            tmp_diffs_topk = torch.cat(tmp_diffs)
+                        new_diffs.append(tmp_diffs_topk.values)
+                        tmp_diffs = []
+
+                    diffs = new_diffs
+
+                # Now, diffs has a much smaller size of tensors.
+                # Still the numbers are allocated on GPU tensors, we use `torch.topk` instead of `np.partition`.
+                diffs = [
+                    diff.to(lowest_rank) for diff in diffs
+                ]
+                diffs = torch.cat(diffs)
+                thresh = torch.topk(diffs, k, largest=True).values[-1].item()
+
+                print(f'Masking threshold = {thresh}')
+
                 n_masked = 0
                 for n, p in tqdm(
                     list(self.model.named_parameters()),
@@ -65,6 +125,10 @@ def LotteryTicketSparseFineTuner(_Trainer):
                         n_masked += to_mask.sum()
 
                 logger.info(f'Masked {n_masked} params')
+            
+            del diffs, valid_indices, valid_deltas, abs_deltas, delta, to_mask, abs_delta
+            gc.collect()
+            torch.cuda.empty_cache()
 
         def train(self, **kwargs):
             self.freeze()

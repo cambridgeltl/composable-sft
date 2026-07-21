@@ -13,7 +13,7 @@ install_requires = [
     'seqeval',
 ]
 try:
-    # Check for pre-existing transformers installations to accomodate
+    # Check for pre-existing transformers installations to accommodate
     # using composable-sft in parallel with adapter-transformers.
     import transformers
 except ImportError:
